@@ -1,0 +1,584 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// User Management
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String
+  role      UserRole @default(STAFF)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  stockIns     StockIn[]
+  shopeeShops  ShopeeShop[]
+  printJobs    PrintJob[]
+  salesOrders  SalesOrder[]
+  expenses     Expense[]
+
+  @@index([email])
+  @@index([role])
+  @@index([isActive])
+  @@index([createdAt])
+  @@map("users")
+}
+
+enum UserRole {
+  OWNER
+  STAFF
+  ACCOUNTANT
+}
+
+// Product Categories
+model Category {
+  id          String   @id @default(cuid())
+  name        String
+  nameTh      String?  // Thai name
+  description String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  products Product[]
+
+  @@index([name])
+  @@index([isActive])
+  @@map("categories")
+}
+
+// Product Brands
+model Brand {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  nameTh    String?  // Thai name
+  logo      String?  // Logo URL
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  products Product[]
+
+  @@index([name])
+  @@index([isActive])
+  @@map("brands")
+}
+
+// Main Product/Inventory Model
+model Product {
+  id          String   @id @default(cuid())
+  sku         String   @unique
+  name        String
+  nameTh      String?  // Thai name
+  description String?
+  descriptionTh String? // Thai description
+  
+  // Physical properties
+  weight      Float?   // in grams
+  dimensions  String?  // "LxWxH" format
+  color       String?
+  
+  // Pricing
+  costPrice   Float    // Cost price (buy-in price)
+  sellPrice   Float?   // Selling price
+  
+  // Inventory
+  stockQty    Int      @default(0)
+  minStock    Int      @default(0)
+  maxStock    Int?
+  
+  // Barcode
+  barcode     String?  @unique
+  
+  // Status
+  isActive    Boolean  @default(true)
+  isDigital   Boolean  @default(false) // For digital products
+  
+  // Timestamps
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  categoryId String
+  category   Category @relation(fields: [categoryId], references: [id])
+  
+  brandId    String
+  brand      Brand    @relation(fields: [brandId], references: [id])
+  
+  stockInItems StockInItem[]
+  shopeeItems ShopeeItem[]
+  printJobProducts PrintJobProduct[]
+  salesItems SalesItem[]
+
+  @@index([sku])
+  @@index([name])
+  @@index([barcode])
+  @@index([categoryId])
+  @@index([brandId])
+  @@index([isActive])
+  @@index([stockQty])
+  @@index([createdAt])
+  @@index([categoryId, isActive])
+  @@index([brandId, isActive])
+  @@index([stockQty, minStock])
+  @@map("products")
+}
+
+// Stock In (Buy-In) Management
+model StockIn {
+  id          String      @id @default(cuid())
+  reference   String      @unique // Invoice/Receipt number
+  supplier    String?     // Supplier name
+  notes       String?
+  totalCost   Float       @default(0)
+  totalQty    Int         @default(0)
+  status      StockInStatus @default(PENDING)
+  
+  // Timestamps
+  receivedAt  DateTime?
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  // Relations
+  userId    String
+  user      User        @relation(fields: [userId], references: [id])
+  
+  items     StockInItem[]
+
+  @@map("stock_ins")
+}
+
+enum StockInStatus {
+  PENDING
+  RECEIVED
+  CANCELLED
+}
+
+// Stock In Items (Individual products in a stock-in)
+model StockInItem {
+  id          String  @id @default(cuid())
+  qty         Int
+  unitCost    Float   // Cost per unit
+  totalCost   Float   // qty * unitCost
+  
+  // Relations
+  stockInId   String
+  stockIn     StockIn @relation(fields: [stockInId], references: [id], onDelete: Cascade)
+  
+  productId   String
+  product     Product @relation(fields: [productId], references: [id])
+
+  @@map("stock_in_items")
+}
+
+// Shopee Integration
+model ShopeeShop {
+  id              String   @id @default(cuid())
+  shopId          String   @unique
+  shopName        String
+  shopRegion      String   // TH, MY, etc.
+  
+  // OAuth tokens
+  accessToken     String
+  refreshToken    String
+  tokenExpiresAt  DateTime
+  
+  // Shop status
+  isActive        Boolean  @default(true)
+  lastSyncAt      DateTime?
+  
+  // Timestamps
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Relations
+  userId          String
+  user            User        @relation(fields: [userId], references: [id])
+  
+  items           ShopeeItem[]
+  syncLogs        ShopeeSyncLog[]
+
+  @@map("shopee_shops")
+}
+
+// Shopee Product Items
+model ShopeeItem {
+  id              String   @id @default(cuid())
+  shopeeItemId    String   @unique
+  shopeeSku       String
+  name            String
+  nameTh          String?  // Thai name
+  price           Float
+  stock           Int
+  status          ShopeeItemStatus @default(NORMAL)
+  
+  // Sync tracking
+  lastSyncAt      DateTime?
+  syncStatus      SyncStatus @default(PENDING)
+  
+  // Timestamps
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Relations
+  shopId          String
+  shop            ShopeeShop @relation(fields: [shopId], references: [id])
+  
+  productId       String?
+  product         Product?  @relation(fields: [productId], references: [id])
+
+  @@map("shopee_items")
+}
+
+enum ShopeeItemStatus {
+  NORMAL
+  BANNED
+  DELETED
+  UNLIST
+}
+
+enum SyncStatus {
+  PENDING
+  SYNCED
+  ERROR
+  CONFLICT
+}
+
+// Shopee Sync Logs
+model ShopeeSyncLog {
+  id          String      @id @default(cuid())
+  action      SyncAction
+  status      SyncStatus
+  message     String?
+  data        Json?       // Additional sync data
+  
+  // Timestamps
+  createdAt   DateTime    @default(now())
+
+  // Relations
+  shopId      String
+  shop        ShopeeShop  @relation(fields: [shopId], references: [id])
+
+  @@map("shopee_sync_logs")
+}
+
+enum SyncAction {
+  CATALOG_SYNC
+  STOCK_SYNC
+  TOKEN_REFRESH
+  SHOP_INFO_UPDATE
+}
+
+// Print Jobs for Barcode Printing
+model PrintJob {
+  id          String      @id @default(cuid())
+  type        PrintType
+  status      PrintStatus @default(PENDING)
+  data        Json        // Print data (products, quantities, etc.)
+  filePath    String?     // Generated PDF path
+  
+  // Timestamps
+  createdAt   DateTime    @default(now())
+  printedAt   DateTime?
+
+  // Relations
+  userId      String
+  user        User        @relation(fields: [userId], references: [id])
+  
+  products    PrintJobProduct[]
+
+  @@map("print_jobs")
+}
+
+enum PrintType {
+  BARCODE_SINGLE
+  BARCODE_BATCH
+  INVENTORY_LIST
+  STOCK_IN_REPORT
+}
+
+enum PrintStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+// Print Job Products
+model PrintJobProduct {
+  id          String  @id @default(cuid())
+  qty         Int     @default(1)
+  
+  // Relations
+  printJobId  String
+  printJob    PrintJob @relation(fields: [printJobId], references: [id], onDelete: Cascade)
+  
+  productId   String
+  product     Product @relation(fields: [productId], references: [id])
+
+  @@map("print_job_products")
+}
+
+// System Settings
+model Setting {
+  id          String   @id @default(cuid())
+  key         String   @unique
+  value       String
+  description String?
+  category    String?  // Grouping settings
+  isPublic    Boolean  @default(false) // Can be accessed by frontend
+  
+  // Timestamps
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("settings")
+}
+
+// Audit Logs
+model AuditLog {
+  id          String   @id @default(cuid())
+  action      String   // CREATE, UPDATE, DELETE, etc.
+  entity      String   // Product, StockIn, etc.
+  entityId    String
+  oldData     Json?
+  newData     Json?
+  userId      String?
+  ipAddress   String?
+  
+  // Timestamps
+  createdAt   DateTime @default(now())
+
+  @@map("audit_logs")
+}
+
+// ============================================
+// SALES / POS MODULE
+// ============================================
+
+// Sales Order (POS Transaction)
+model SalesOrder {
+  id           String         @id @default(cuid())
+  orderNumber  String         @unique // Barcode-scannable order number
+  
+  // Financial
+  totalCost    Float          @default(0) // Total cost of goods sold
+  totalPrice   Float          @default(0) // Total selling price
+  profit       Float          @default(0) // totalPrice - totalCost
+  
+  // Status
+  status       SalesStatus    @default(DRAFT)
+  
+  // Relations
+  staffId      String
+  staff        User           @relation(fields: [staffId], references: [id])
+  
+  items        SalesItem[]
+  
+  // Timestamps
+  confirmedAt  DateTime?
+  canceledAt   DateTime?
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+  
+  // Metadata
+  notes        String?
+  paymentMethod String?       // CASH, CARD, TRANSFER, etc.
+  customerName  String?
+  customerPhone String?
+  
+  @@index([staffId])
+  @@index([status])
+  @@index([createdAt])
+  @@map("sales_orders")
+}
+
+enum SalesStatus {
+  DRAFT      // Order in progress
+  CONFIRMED  // Sale completed, stock cut
+  CANCELED   // Order canceled
+  REFUNDED   // Order refunded (stock restored)
+}
+
+// Sales Order Items
+model SalesItem {
+  id          String      @id @default(cuid())
+  
+  // Order relation
+  orderId     String
+  order       SalesOrder  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  
+  // Product info (snapshot at time of sale)
+  productId   String
+  product     Product     @relation(fields: [productId], references: [id])
+  sku         String      // Snapshot
+  productName String      // Snapshot
+  barcode     String?     // Snapshot
+  
+  // Quantities and pricing
+  quantity    Int
+  unitCost    Float       // Cost at time of sale
+  unitPrice   Float       // Selling price at time of sale
+  subtotal    Float       // quantity * unitPrice
+  profit      Float       // (unitPrice - unitCost) * quantity
+  
+  // Timestamps
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  
+  @@index([orderId])
+  @@index([productId])
+  @@map("sales_items")
+}
+
+// Daily Sales Summary (for reporting)
+model DailySalesSummary {
+  id              String   @id @default(cuid())
+  date            DateTime @unique @db.Date
+  
+  totalOrders     Int      @default(0)
+  totalRevenue    Float    @default(0)
+  totalCost       Float    @default(0)
+  totalProfit     Float    @default(0)
+  totalItemsSold  Int      @default(0)
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  @@index([date])
+  @@map("daily_sales_summaries")
+}
+
+// ============================================
+// ACCOUNTING MODULE
+// ============================================
+
+// Expense Categories
+model ExpenseCategory {
+  id          String    @id @default(cuid())
+  name        String
+  nameTh      String?   // Thai name
+  description String?
+  color       String?   // For UI visualization
+  icon        String?   // Icon name or emoji
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  
+  // Relations
+  expenses    Expense[]
+  
+  @@map("expense_categories")
+}
+
+// Payment Methods
+model PaymentMethod {
+  id          String    @id @default(cuid())
+  name        String    // Cash, Bank Transfer, Credit Card, etc.
+  nameTh      String?
+  description String?
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  
+  // Relations
+  expenses    Expense[]
+  
+  @@map("payment_methods")
+}
+
+// Expenses
+model Expense {
+  id              String          @id @default(cuid())
+  
+  // Basic Info
+  title           String
+  description     String?
+  amount          Float
+  expenseDate     DateTime        @db.Date
+  
+  // Category & Payment
+  categoryId      String
+  category        ExpenseCategory @relation(fields: [categoryId], references: [id])
+  paymentMethodId String
+  paymentMethod   PaymentMethod   @relation(fields: [paymentMethodId], references: [id])
+  
+  // Additional Info
+  vendor          String?         // Supplier/Vendor name
+  invoiceNumber   String?         // Invoice or receipt number
+  notes           String?
+  attachmentUrl   String?         // Receipt/Invoice file URL
+  
+  // Status
+  status          ExpenseStatus   @default(PENDING)
+  approvedBy      String?
+  approvedAt      DateTime?
+  
+  // User tracking
+  createdBy       String
+  user            User            @relation(fields: [createdBy], references: [id])
+  
+  // Timestamps
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  
+  @@index([categoryId])
+  @@index([paymentMethodId])
+  @@index([createdBy])
+  @@index([expenseDate])
+  @@index([status])
+  @@map("expenses")
+}
+
+enum ExpenseStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  PAID
+}
+
+// Monthly Financial Summary
+model MonthlyFinancialSummary {
+  id                    String   @id @default(cuid())
+  year                  Int
+  month                 Int      // 1-12
+  
+  // Revenue
+  totalRevenue          Float    @default(0)
+  totalSalesRevenue     Float    @default(0)
+  
+  // Costs
+  totalCost             Float    @default(0)
+  totalProductCost      Float    @default(0)  // COGS
+  
+  // Expenses
+  totalExpenses         Float    @default(0)
+  
+  // Profit
+  grossProfit           Float    @default(0)  // Revenue - COGS
+  netProfit             Float    @default(0)  // Gross Profit - Expenses
+  profitMargin          Float    @default(0)  // Net Profit / Revenue * 100
+  
+  // Metrics
+  totalOrders           Int      @default(0)
+  totalExpenseRecords   Int      @default(0)
+  
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+  
+  @@unique([year, month])
+  @@index([year, month])
+  @@map("monthly_financial_summaries")
+}
