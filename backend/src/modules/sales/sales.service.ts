@@ -211,8 +211,11 @@ export class SalesService {
       });
     }
 
+    // Product not found - check if user wants to update order number
+    // or if it's truly an unknown barcode
+    this.logger.warn(`Barcode not found as product: ${dto.barcodeValue}`);
+
     // Check if it's an order number barcode
-    // Update the order number if it's different
     const order = await this.prisma.salesOrder.findUnique({
       where: { id: dto.orderId },
     });
@@ -221,7 +224,17 @@ export class SalesService {
       throw new NotFoundException('Sales order not found');
     }
 
-    // Update order number
+    // If the scanned value looks like it could be an order number (has expected format)
+    // then update it, otherwise throw a "product not found" error
+    const isLikelyOrderNumber = /^[A-Z]{2}-\d{8}-\d{4}$/.test(dto.barcodeValue);
+
+    if (!isLikelyOrderNumber) {
+      throw new NotFoundException(
+        `Product not found with barcode/SKU: ${dto.barcodeValue}. Please check the barcode and try again.`
+      );
+    }
+
+    // Update order number if it matches expected format
     const updatedOrder = await this.prisma.salesOrder.update({
       where: { id: dto.orderId },
       data: { orderNumber: dto.barcodeValue },

@@ -141,23 +141,44 @@ export class ProductService {
       where.brandId = brand;
     }
 
-    if (lowStock) {
-      where.stockQty = { lte: where.minStock };
-    }
+    // Note: Prisma doesn't support field-to-field comparison in where clause
+    // For low stock, we need to use raw SQL or filter after fetch
+    let products: any[];
+    let total: number;
 
-    const [products, total] = await Promise.all([
-      this.prisma.product.findMany({
-        where,
+    if (lowStock) {
+      // Use raw SQL for field comparison
+      const allProducts = await this.prisma.product.findMany({
+        where: {
+          ...where,
+          isActive: true,
+        },
         include: {
           brand: { select: { name: true } },
           category: { select: { name: true } },
         },
         orderBy: { [sortBy]: sortOrder },
-        skip,
-        take: limit,
-      }),
-      this.prisma.product.count({ where }),
-    ]);
+      });
+
+      // Filter in memory for field comparison
+      const filteredProducts = allProducts.filter(p => p.stockQty <= p.minStock);
+      total = filteredProducts.length;
+      products = filteredProducts.slice(skip, skip + limit);
+    } else {
+      [products, total] = await Promise.all([
+        this.prisma.product.findMany({
+          where,
+          include: {
+            brand: { select: { name: true } },
+            category: { select: { name: true } },
+          },
+          orderBy: { [sortBy]: sortOrder },
+          skip,
+          take: limit,
+        }),
+        this.prisma.product.count({ where }),
+      ]);
+    }
 
     return {
       products,

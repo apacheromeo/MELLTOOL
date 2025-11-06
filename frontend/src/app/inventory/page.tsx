@@ -861,7 +861,11 @@ export default function InventoryPage() {
 
 function ProductCard({ product, onDelete, onEdit }: any) {
   const stockStatus = product.stockQty <= product.minStock ? 'low' : 'good'
-  const stockPercentage = product.minStock ? (product.stockQty / product.minStock) * 100 : 100
+  // Calculate percentage: if minStock is 0 or undefined, show 100% if stock exists, else 0%
+  // Otherwise, show current stock as percentage of (minStock * 2) for visual representation
+  const stockPercentage = product.minStock > 0
+    ? Math.min((product.stockQty / (product.minStock * 2)) * 100, 100)
+    : (product.stockQty > 0 ? 100 : 0)
   
   return (
     <div className="card p-6 card-hover">

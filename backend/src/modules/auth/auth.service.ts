@@ -228,6 +228,17 @@ export class AuthService {
         throw new NotFoundException('User not found');
       }
 
+      // Verify current password before allowing change
+      const { error: signInError } = await this.supabase.auth.signInWithPassword({
+        email: user.email,
+        password: currentPassword,
+      });
+
+      if (signInError) {
+        this.logger.warn(`Invalid current password attempt for user: ${user.email}`);
+        throw new UnauthorizedException('Current password is incorrect');
+      }
+
       // Update password in Supabase
       const { error } = await this.supabase.auth.updateUser({
         password: newPassword,
@@ -242,7 +253,7 @@ export class AuthService {
 
       return { message: 'Password changed successfully' };
     } catch (error) {
-      if (error instanceof NotFoundException || error instanceof BadRequestException) {
+      if (error instanceof NotFoundException || error instanceof BadRequestException || error instanceof UnauthorizedException) {
         throw error;
       }
       this.logger.error(`Password change error for user: ${userId}`, error);

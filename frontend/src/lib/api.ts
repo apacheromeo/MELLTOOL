@@ -366,6 +366,17 @@ class ApiClient {
     });
   }
 
+  async addProductToSale(orderId: string, productId: string, quantity: number = 1) {
+    // First get the product to get its SKU
+    const product = await this.getProduct(productId);
+    // Then add it by SKU
+    return this.addItemToSale({
+      orderId,
+      sku: product.sku,
+      quantity,
+    });
+  }
+
   async updateSalesItem(itemId: string, data: {
     quantity?: number;
     unitPrice?: number;
