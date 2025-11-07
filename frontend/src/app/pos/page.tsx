@@ -5,13 +5,14 @@ import { api } from '@/lib/api'
 import { useAuth } from '@/contexts/AuthContext'
 import ProtectedRoute from '@/components/ProtectedRoute'
 import QRScanner from '@/components/pos/QRScanner'
+import OrderFulfillment from '@/components/pos/OrderFulfillment'
 import BrandGrid from '@/components/pos/BrandGrid'
 import CategoryGrid from '@/components/pos/CategoryGrid'
 import ProductGrid from '@/components/pos/ProductGrid'
 import POSCart from '@/components/pos/POSCart'
 import POSCheckout from '@/components/pos/POSCheckout'
 
-type ViewMode = 'scanner' | 'brands' | 'categories' | 'products' | 'cart'
+type ViewMode = 'scanner' | 'fulfillment' | 'brands' | 'categories' | 'products' | 'cart'
 
 function POSPageContent() {
   const { user } = useAuth()
@@ -28,6 +29,8 @@ function POSPageContent() {
   // Order state
   const [currentOrder, setCurrentOrder] = useState<any>(null)
   const [cartItems, setCartItems] = useState<any[]>([])
+  const [existingOrder, setExistingOrder] = useState<any>(null) // For fulfillment mode
+  const [scannedItems, setScannedItems] = useState<Record<string, number>>({}) // item ID -> scanned qty
 
   // UI state
   const [loading, setLoading] = useState(false)
@@ -85,8 +88,22 @@ function POSPageContent() {
       setLoading(true)
       setError(null)
 
-      // If we have an order number from QR, start sale with it
+      // Try to load existing order first
       if (orderData.orderNumber) {
+        try {
+          const existingOrder = await api.getSalesOrderByNumber(orderData.orderNumber)
+
+          // Order found! Enter fulfillment mode
+          setExistingOrder(existingOrder)
+          setScannedItems({})
+          setViewMode('fulfillment')
+          return
+        } catch (fetchErr: any) {
+          // Order not found, create new one
+          console.log('Order not found, creating new:', fetchErr.message)
+        }
+
+        // Create new order with this order number
         const order = await api.startSale({ orderNumber: orderData.orderNumber })
         setCurrentOrder(order)
         setViewMode('brands')
@@ -245,6 +262,45 @@ function POSPageContent() {
     }
   }
 
+  // Fulfillment mode handlers
+  const handleFulfillmentItemScanned = (itemId: string, barcode: string) => {
+    setScannedItems(prev => ({
+      ...prev,
+      [itemId]: (prev[itemId] || 0) + 1
+    }))
+  }
+
+  const handleFulfillmentComplete = async () => {
+    if (!existingOrder) return
+
+    try {
+      setLoading(true)
+      setError(null)
+
+      await api.confirmSale({
+        orderId: existingOrder.id,
+      })
+
+      alert('✅ Order fulfilled and completed successfully!')
+      setExistingOrder(null)
+      setScannedItems({})
+      setViewMode('scanner')
+
+    } catch (err: any) {
+      setError(err.message || 'Failed to complete order')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleFulfillmentCancel = () => {
+    if (confirm('Cancel fulfillment? You will return to the scanner.')) {
+      setExistingOrder(null)
+      setScannedItems({})
+      setViewMode('scanner')
+    }
+  }
+
   const cartCount = cartItems.length
   const cartTotal = currentOrder?.totalPrice || 0
 
@@ -333,6 +389,16 @@ function POSPageContent() {
           <QRScanner
             onOrderScanned={handleOrderScanned}
             onStartNew={handleStartNewOrder}
+          />
+        )}
+
+        {viewMode === 'fulfillment' && existingOrder && (
+          <OrderFulfillment
+            order={existingOrder}
+            onItemScanned={handleFulfillmentItemScanned}
+            onComplete={handleFulfillmentComplete}
+            onCancel={handleFulfillmentCancel}
+            scannedItems={scannedItems}
           />
         )}
 

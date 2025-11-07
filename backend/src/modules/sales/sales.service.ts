@@ -515,6 +515,49 @@ export class SalesService {
   }
 
   /**
+   * Get order by order number (for QR code matching)
+   */
+  async getOrderByNumber(orderNumber: string) {
+    const order = await this.prisma.salesOrder.findUnique({
+      where: { orderNumber },
+      include: {
+        staff: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
+        items: {
+          include: {
+            product: {
+              select: {
+                id: true,
+                name: true,
+                nameTh: true,
+                sku: true,
+                barcode: true,
+                stockQty: true,
+              },
+            },
+          },
+          orderBy: {
+            createdAt: 'asc',
+          },
+        },
+      },
+    });
+
+    if (!order) {
+      throw new NotFoundException(
+        `Sales order not found with order number: ${orderNumber}`,
+      );
+    }
+
+    return order;
+  }
+
+  /**
    * Get sales history with filters
    */
   async getSalesHistory(params: {

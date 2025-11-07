@@ -415,6 +415,10 @@ class ApiClient {
     return this.request(`/sales/${orderId}`);
   }
 
+  async getSalesOrderByNumber(orderNumber: string) {
+    return this.request(`/sales/by-order-number/${orderNumber}`);
+  }
+
   async getSalesHistory(params?: {
     page?: number;
     limit?: number;

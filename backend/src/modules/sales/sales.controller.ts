@@ -113,6 +113,18 @@ export class SalesController {
   }
 
   /**
+   * GET /api/sales/by-order-number/:orderNumber
+   * Get sales order by order number (for QR code matching)
+   */
+  @Get('by-order-number/:orderNumber')
+  @ApiOperation({ summary: 'Get sales order by order number' })
+  @ApiResponse({ status: 200, description: 'Order details' })
+  @ApiResponse({ status: 404, description: 'Order not found' })
+  async getOrderByNumber(@Param('orderNumber') orderNumber: string) {
+    return this.salesService.getOrderByNumber(orderNumber);
+  }
+
+  /**
    * GET /api/sales/:orderId
    * Get sales order details
    */
