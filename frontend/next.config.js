@@ -111,7 +111,8 @@ const nextConfig = {
   },
 
   // Output configuration
-  output: 'standalone',
+  // Note: 'standalone' disabled for Codespaces compatibility
+  // output: 'standalone',
 
   // Power by header
   poweredByHeader: false,
