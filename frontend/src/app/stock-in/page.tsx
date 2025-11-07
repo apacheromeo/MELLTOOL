@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { api } from '@/lib/api'
 import Sidebar from '@/components/Sidebar'
+import BarcodePrintLabels from '@/components/BarcodePrintLabels'
 
 interface StockInItem {
   productId: string
@@ -22,6 +23,8 @@ export default function StockInPage() {
     supplier: '',
     notes: '',
   })
+  const [printLabels, setPrintLabels] = useState<any[]>([])
+  const [showPrintModal, setShowPrintModal] = useState(false)
 
   useEffect(() => {
     loadStockIns()
@@ -64,11 +67,44 @@ export default function StockInPage() {
   }
 
   const handleReceive = async (id: string) => {
-    if (!confirm('Mark this stock-in as received?')) return
-    
+    if (!confirm('Mark this stock-in as received and print barcode labels?')) return
+
     try {
+      // Find the stock-in to get its items
+      const stockIn = stockIns.find(s => s.id === id)
+      if (!stockIn || !stockIn.items) {
+        alert('Could not find stock-in items')
+        return
+      }
+
+      // Generate labels: one label per unit (quantity)
+      const labels: any[] = []
+      stockIn.items.forEach((item: any) => {
+        const product = item.product
+        if (!product) return
+
+        // Create one label for each unit in the quantity
+        for (let i = 0; i < item.quantity; i++) {
+          labels.push({
+            barcode: product.barcode || product.sku,
+            name: product.name,
+            price: product.sellPrice,
+            sku: product.sku,
+          })
+        }
+      })
+
+      // Mark as received
       await api.receiveStockIn(id)
       loadStockIns()
+
+      // Show print dialog with labels
+      if (labels.length > 0) {
+        setPrintLabels(labels)
+        setShowPrintModal(true)
+      } else {
+        alert('✅ Stock-in received! (No barcodes available for printing)')
+      }
     } catch (err: any) {
       alert('Failed to receive stock-in: ' + err.message)
     }
@@ -433,6 +469,54 @@ export default function StockInPage() {
                   </button>
                 </div>
               </form>
+            </div>
+          </div>
+        )}
+
+        {/* Barcode Print Modal */}
+        {showPrintModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-2xl shadow-2xl max-w-6xl w-full max-h-[90vh] overflow-y-auto">
+              <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between z-10">
+                <h2 className="text-2xl font-bold text-gray-900">Print Barcode Labels</h2>
+                <button
+                  onClick={() => setShowPrintModal(false)}
+                  className="p-2 hover:bg-gray-100 rounded-lg transition"
+                >
+                  <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+
+              <div className="p-6">
+                <BarcodePrintLabels
+                  labels={printLabels}
+                  autoPrint={true}
+                  onPrintComplete={() => {
+                    // Optional: close modal after print
+                    // setShowPrintModal(false)
+                  }}
+                />
+              </div>
+
+              <div className="sticky bottom-0 bg-gray-50 border-t border-gray-200 px-6 py-4 flex justify-end gap-3">
+                <button
+                  onClick={() => setShowPrintModal(false)}
+                  className="btn-secondary"
+                >
+                  Close
+                </button>
+                <button
+                  onClick={() => window.print()}
+                  className="btn-primary flex items-center gap-2"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+                  </svg>
+                  Print Again
+                </button>
+              </div>
             </div>
           </div>
         )}
