@@ -79,7 +79,8 @@ export default function Sidebar() {
         </svg>
       ),
       subItems: [
-        { name: 'Point of Sale', nameTh: 'จุดขาย', href: '/sales' },
+        { name: 'iPad POS (New)', nameTh: 'จุดขาย iPad', href: '/pos' },
+        { name: 'Desktop POS', nameTh: 'จุดขายเดสก์ท็อป', href: '/sales' },
         { name: 'Sales Orders', nameTh: 'คำสั่งขาย', href: '/sales/orders' },
         { name: 'Sales History', nameTh: 'ประวัติการขาย', href: '/sales/history' },
         { name: 'Daily Reports', nameTh: 'รายงานรายวัน', href: '/sales/reports' },
