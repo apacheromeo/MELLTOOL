@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
 import Link from 'next/link'
+import { useAuth } from '@/contexts/AuthContext'
 
 interface SubMenuItem {
   name: string
@@ -23,6 +24,13 @@ export default function Sidebar() {
   const [expandedMenus, setExpandedMenus] = useState<string[]>([])
   const pathname = usePathname()
   const router = useRouter()
+  const { user, logout } = useAuth()
+
+  const handleLogout = async () => {
+    if (confirm('Are you sure you want to logout?')) {
+      await logout()
+    }
+  }
 
 
   const menuItems: MenuItem[] = [
@@ -290,18 +298,22 @@ export default function Sidebar() {
         </nav>
 
         {/* User Profile Section */}
-        {!isCollapsed && (
+        {!isCollapsed && user && (
           <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-gray-200 bg-white">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-semibold">
-                U
+                {user.name.charAt(0).toUpperCase()}
               </div>
               <div className="flex-1 min-w-0">
-                <div className="font-medium text-sm text-gray-900 truncate">User Name</div>
-                <div className="text-xs text-gray-500">Owner</div>
+                <div className="font-medium text-sm text-gray-900 truncate">{user.name}</div>
+                <div className="text-xs text-gray-500">{user.role}</div>
               </div>
-              <button className="p-1.5 rounded-lg hover:bg-gray-100 transition">
-                <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <button
+                onClick={handleLogout}
+                className="p-1.5 rounded-lg hover:bg-red-50 transition group"
+                title="Logout"
+              >
+                <svg className="w-4 h-4 text-gray-500 group-hover:text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
                 </svg>
               </button>
@@ -310,11 +322,15 @@ export default function Sidebar() {
         )}
 
         {/* Collapsed User Profile */}
-        {isCollapsed && (
+        {isCollapsed && user && (
           <div className="absolute bottom-0 left-0 right-0 p-3 border-t border-gray-200 bg-white">
-            <div className="w-10 h-10 mx-auto rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-semibold">
-              U
-            </div>
+            <button
+              onClick={handleLogout}
+              className="w-10 h-10 mx-auto rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-semibold hover:ring-2 hover:ring-blue-300 transition"
+              title={`${user.name} - Click to logout`}
+            >
+              {user.name.charAt(0).toUpperCase()}
+            </button>
           </div>
         )}
       </aside>

@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import './globals.css'
 import LoadingBar from '@/components/LoadingBar'
+import { AuthProvider } from '@/contexts/AuthContext'
 
 // NOTE: Google Fonts disabled for Codespaces compatibility
 // Using system fonts as fallback for better performance and reliability
@@ -20,7 +21,9 @@ export default function RootLayout({
     <html lang="en" suppressHydrationWarning>
       <body className="font-sans">
         <LoadingBar />
-        {children}
+        <AuthProvider>
+          {children}
+        </AuthProvider>
       </body>
     </html>
   )

@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from 'react'
 import { api } from '@/lib/api'
+import { useAuth } from '@/contexts/AuthContext'
+import ProtectedRoute from '@/components/ProtectedRoute'
 import QRScanner from '@/components/pos/QRScanner'
 import BrandGrid from '@/components/pos/BrandGrid'
 import CategoryGrid from '@/components/pos/CategoryGrid'
@@ -11,7 +13,8 @@ import POSCheckout from '@/components/pos/POSCheckout'
 
 type ViewMode = 'scanner' | 'brands' | 'categories' | 'products' | 'cart'
 
-export default function POSPage() {
+function POSPageContent() {
+  const { user } = useAuth()
   // Navigation state
   const [viewMode, setViewMode] = useState<ViewMode>('scanner')
   const [selectedBrand, setSelectedBrand] = useState<any>(null)
@@ -392,5 +395,14 @@ export default function POSPage() {
         </div>
       )}
     </div>
+  )
+}
+
+
+export default function POSPage() {
+  return (
+    <ProtectedRoute allowedRoles={["OWNER", "STAFF"]}>
+      <POSPageContent />
+    </ProtectedRoute>
   )
 }
