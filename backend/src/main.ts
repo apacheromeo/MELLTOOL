@@ -1,11 +1,13 @@
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe, Logger } from '@nestjs/common';
+import { NestExpressApplication } from '@nestjs/platform-express';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { ConfigService } from '@nestjs/config';
 import { WinstonModule } from 'nest-winston';
 import * as Sentry from '@sentry/nestjs';
 import helmet from 'helmet';
 import * as cookieParser from 'cookie-parser';
+import { join } from 'path';
 
 import { AppModule } from './app.module';
 import { winstonConfig } from './config/winston.config';
@@ -19,8 +21,13 @@ async function bootstrap() {
     environment: process.env.NODE_ENV || 'development',
   });
 
-  const app = await NestFactory.create(AppModule, {
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, {
     logger: WinstonModule.createLogger(winstonConfig),
+  });
+
+  // Serve static files from uploads directory
+  app.useStaticAssets(join(__dirname, '..', 'uploads'), {
+    prefix: '/uploads/',
   });
 
   const configService = app.get(ConfigService);

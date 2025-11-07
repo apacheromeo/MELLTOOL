@@ -122,6 +122,32 @@ class ApiClient {
     });
   }
 
+  async uploadProductImage(productId: string, file: File) {
+    const formData = new FormData();
+    formData.append('image', file);
+
+    const headers: Record<string, string> = {};
+    if (this.token) {
+      headers['Authorization'] = `Bearer ${this.token}`;
+    }
+
+    const response = await fetch(
+      `${this.baseURL}/inventory/products/${productId}/image`,
+      {
+        method: 'POST',
+        headers,
+        body: formData,
+      },
+    );
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ message: 'Upload failed' }));
+      throw new Error(error.message || `HTTP ${response.status}`);
+    }
+
+    return response.json();
+  }
+
   async getCategories() {
     return this.request('/inventory/categories');
   }

@@ -101,7 +101,10 @@ model Product {
   
   // Barcode
   barcode     String?  @unique
-  
+
+  // Media
+  imageUrl    String?  // Product image URL
+
   // Status
   isActive    Boolean  @default(true)
   isDigital   Boolean  @default(false) // For digital products

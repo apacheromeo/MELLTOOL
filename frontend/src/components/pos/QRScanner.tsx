@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useRef } from 'react'
+import CameraQRScanner from './CameraQRScanner'
 
 interface QRScannerProps {
   onOrderScanned: (orderData: any) => void
@@ -9,6 +10,7 @@ interface QRScannerProps {
 
 export default function QRScanner({ onOrderScanned, onStartNew }: QRScannerProps) {
   const [manualInput, setManualInput] = useState('')
+  const [scanMode, setScanMode] = useState<'manual' | 'camera'>('manual')
   const inputRef = useRef<HTMLInputElement>(null)
 
   const handleManualInput = (e: React.FormEvent) => {
@@ -18,6 +20,11 @@ export default function QRScanner({ onOrderScanned, onStartNew }: QRScannerProps
     // Parse QR code data (assuming it contains order number)
     onOrderScanned({ orderNumber: manualInput.trim() })
     setManualInput('')
+  }
+
+  const handleCameraScan = (decodedText: string) => {
+    // Parse QR code data from camera
+    onOrderScanned({ orderNumber: decodedText.trim() })
   }
 
   return (
@@ -33,12 +40,39 @@ export default function QRScanner({ onOrderScanned, onStartNew }: QRScannerProps
         <h2 className="text-4xl font-bold text-center text-gray-900 mb-3">
           Scan Order QR Code
         </h2>
-        <p className="text-center text-gray-600 text-lg mb-12">
+        <p className="text-center text-gray-600 text-lg mb-8">
           Scan the order QR code or enter order number manually
         </p>
 
+        {/* Mode Toggle */}
+        <div className="flex gap-3 mb-8">
+          <button
+            type="button"
+            onClick={() => setScanMode('manual')}
+            className={`flex-1 py-3 rounded-xl font-bold transition-all ${
+              scanMode === 'manual'
+                ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg'
+                : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+            }`}
+          >
+            ⌨️ Manual Input
+          </button>
+          <button
+            type="button"
+            onClick={() => setScanMode('camera')}
+            className={`flex-1 py-3 rounded-xl font-bold transition-all ${
+              scanMode === 'camera'
+                ? 'bg-gradient-to-r from-green-600 to-emerald-600 text-white shadow-lg'
+                : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+            }`}
+          >
+            📷 Camera Scanner
+          </button>
+        </div>
+
         {/* Manual Input */}
-        <form onSubmit={handleManualInput} className="space-y-6 mb-8">
+        {scanMode === 'manual' && (
+          <form onSubmit={handleManualInput} className="space-y-6 mb-8">
           <div>
             <label className="block text-sm font-semibold text-gray-700 mb-3">
               Order Number
@@ -61,6 +95,14 @@ export default function QRScanner({ onOrderScanned, onStartNew }: QRScannerProps
             Match Order
           </button>
         </form>
+        )}
+
+        {/* Camera Scanner */}
+        {scanMode === 'camera' && (
+          <div className="mb-8">
+            <CameraQRScanner onScan={handleCameraScan} />
+          </div>
+        )}
 
         {/* Divider */}
         <div className="relative my-8">

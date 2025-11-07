@@ -199,6 +199,25 @@ export class InventoryController {
     return this.barcodeService.generateBarcode(id, generateBarcodeDto);
   }
 
+  @Post('products/:id/image')
+  @Roles(UserRole.OWNER, UserRole.STAFF)
+  @UseInterceptors(FileInterceptor('image'), FileUploadSecurityInterceptor)
+  @ApiConsumes('multipart/form-data')
+  @ApiOperation({ summary: 'Upload product image' })
+  @ApiResponse({ status: 200, description: 'Image uploaded successfully' })
+  @ApiResponse({ status: 400, description: 'Invalid file' })
+  async uploadProductImage(
+    @Param('id') id: string,
+    @UploadedFile() file: Express.Multer.File,
+  ) {
+    if (!file) {
+      throw new BadRequestException('No file uploaded');
+    }
+
+    this.logger.log(`Uploading image for product: ${id}, file: ${file.originalname}`);
+    return this.productService.uploadImage(id, file);
+  }
+
   // Categories
   @Post('categories')
   @Roles(UserRole.OWNER, UserRole.STAFF)

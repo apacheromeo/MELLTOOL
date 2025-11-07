@@ -7,6 +7,8 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { BarcodeService } from './barcode.service';
+import * as fs from 'fs';
+import * as path from 'path';
 
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
@@ -341,5 +343,57 @@ export class ProductService {
     }
 
     return product;
+  }
+
+  async uploadImage(productId: string, file: Express.Multer.File) {
+    // Verify product exists
+    const product = await this.prisma.product.findUnique({
+      where: { id: productId },
+    });
+
+    if (!product) {
+      throw new NotFoundException('Product not found');
+    }
+
+    // Validate file type (images only)
+    const allowedMimeTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
+    if (!allowedMimeTypes.includes(file.mimetype)) {
+      throw new BadRequestException('Only image files are allowed (JPEG, PNG, GIF, WebP)');
+    }
+
+    // Create uploads directory if it doesn't exist
+    const uploadsDir = path.join(process.cwd(), 'uploads', 'products');
+    if (!fs.existsSync(uploadsDir)) {
+      fs.mkdirSync(uploadsDir, { recursive: true });
+    }
+
+    // Generate unique filename
+    const fileExtension = path.extname(file.originalname);
+    const fileName = `${productId}-${Date.now()}${fileExtension}`;
+    const filePath = path.join(uploadsDir, fileName);
+
+    // Save file to disk
+    fs.writeFileSync(filePath, file.buffer);
+
+    // Generate URL (relative path)
+    const imageUrl = `/uploads/products/${fileName}`;
+
+    // Update product with image URL
+    const updatedProduct = await this.prisma.product.update({
+      where: { id: productId },
+      data: { imageUrl },
+      include: {
+        brand: { select: { name: true } },
+        category: { select: { name: true } },
+      },
+    });
+
+    this.logger.log(`Image uploaded for product: ${product.sku} - ${fileName}`);
+
+    return {
+      message: 'Image uploaded successfully',
+      product: updatedProduct,
+      imageUrl,
+    };
   }
 }

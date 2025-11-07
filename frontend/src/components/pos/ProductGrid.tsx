@@ -140,15 +140,19 @@ export default function ProductGrid({
                     : 'border-red-200 opacity-60 cursor-not-allowed'
                 }`}
               >
-                {/* Product Image Placeholder */}
+                {/* Product Image */}
                 <div className={`w-full aspect-square rounded-xl mb-4 flex items-center justify-center overflow-hidden ${
                   inStock ? 'bg-gradient-to-br from-gray-100 to-gray-200' : 'bg-gray-100'
                 }`}>
                   {product.imageUrl ? (
                     <img
-                      src={product.imageUrl}
+                      src={product.imageUrl.startsWith('http') ? product.imageUrl : `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}${product.imageUrl}`}
                       alt={product.name}
                       className="w-full h-full object-cover"
+                      onError={(e) => {
+                        // Fallback to placeholder if image fails to load
+                        (e.target as HTMLImageElement).style.display = 'none'
+                      }}
                     />
                   ) : (
                     <svg className="w-16 h-16 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
