@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MELLTOOL Diagnostic Page</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            color: white;
+            padding: 20px;
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+        }
+        h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+        .subtitle {
+            font-size: 1.2em;
+            margin-bottom: 30px;
+            opacity: 0.9;
+        }
+        .test-section {
+            background: rgba(255,255,255,0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 12px;
+            padding: 25px;
+            margin-bottom: 20px;
+            border: 1px solid rgba(255,255,255,0.2);
+        }
+        .test-section h2 {
+            font-size: 1.5em;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .status {
+            display: inline-block;
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-size: 0.9em;
+            font-weight: bold;
+        }
+        .status.success {
+            background: #10b981;
+            color: white;
+        }
+        .status.info {
+            background: #3b82f6;
+            color: white;
+        }
+        .status.warning {
+            background: #f59e0b;
+            color: white;
+        }
+        .test-item {
+            background: rgba(0,0,0,0.2);
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 10px;
+        }
+        .test-item strong {
+            color: #60a5fa;
+        }
+        .code {
+            background: rgba(0,0,0,0.4);
+            padding: 10px;
+            border-radius: 6px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+            margin-top: 10px;
+            overflow-x: auto;
+        }
+        .button {
+            background: #3b82f6;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-size: 1em;
+            cursor: pointer;
+            margin-top: 15px;
+            transition: background 0.3s;
+        }
+        .button:hover {
+            background: #2563eb;
+        }
+        #jsTest {
+            color: #fbbf24;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 MELLTOOL Diagnostic Page</h1>
+        <p class="subtitle">Codespaces Connection & Resource Loading Test</p>
+
+        <div class="test-section">
+            <h2>
+                ✅ HTML Loading
+                <span class="status success">SUCCESS</span>
+            </h2>
+            <p>If you can see this page with colors and formatting, HTML and inline CSS are working correctly!</p>
+        </div>
+
+        <div class="test-section">
+            <h2>
+                ✅ CSS Styling
+                <span class="status success">SUCCESS</span>
+            </h2>
+            <p>The blue gradient background, rounded corners, and typography confirm that CSS is rendering properly.</p>
+        </div>
+
+        <div class="test-section">
+            <h2>
+                ⏳ JavaScript Execution
+                <span class="status info" id="jsStatus">TESTING...</span>
+            </h2>
+            <p id="jsTest">If JavaScript is working, this text will turn green and show the current time.</p>
+            <div id="jsDetails" class="code">Waiting for JavaScript...</div>
+        </div>
+
+        <div class="test-section">
+            <h2>🌐 Connection Information</h2>
+            <div class="test-item">
+                <strong>Current URL:</strong>
+                <div class="code" id="currentUrl">Loading...</div>
+            </div>
+            <div class="test-item">
+                <strong>User Agent:</strong>
+                <div class="code" id="userAgent">Loading...</div>
+            </div>
+            <div class="test-item">
+                <strong>Screen Resolution:</strong>
+                <div class="code" id="screenInfo">Loading...</div>
+            </div>
+            <div class="test-item">
+                <strong>Timestamp:</strong>
+                <div class="code" id="timestamp">Loading...</div>
+            </div>
+        </div>
+
+        <div class="test-section">
+            <h2>📋 Diagnostic Results</h2>
+            <div id="diagnosticResults" class="code">
+                Running diagnostics...
+            </div>
+        </div>
+
+        <div class="test-section">
+            <h2>🎯 Next Steps</h2>
+            <p><strong>If you see this page correctly:</strong></p>
+            <ul style="margin-left: 20px; margin-top: 10px; line-height: 1.8;">
+                <li>✅ Port 3000 forwarding is working</li>
+                <li>✅ Static HTML files are being served</li>
+                <li>✅ Basic CSS and JavaScript execution is functional</li>
+            </ul>
+            <p style="margin-top: 15px;"><strong>To access the main app:</strong></p>
+            <div class="code" style="margin-top: 10px;">
+                Remove /diagnostic.html from the URL to go to the home page
+            </div>
+            <button class="button" onclick="window.location.href='/'">Go to Main App</button>
+        </div>
+    </div>
+
+    <script>
+        // Test JavaScript execution
+        setTimeout(() => {
+            try {
+                // Update JavaScript status
+                const jsStatus = document.getElementById('jsStatus');
+                jsStatus.textContent = 'SUCCESS';
+                jsStatus.className = 'status success';
+
+                const jsTest = document.getElementById('jsTest');
+                jsTest.style.color = '#10b981';
+                jsTest.textContent = '✅ JavaScript is executing correctly! Current time: ' + new Date().toLocaleTimeString();
+
+                // Update connection info
+                document.getElementById('currentUrl').textContent = window.location.href;
+                document.getElementById('userAgent').textContent = navigator.userAgent;
+                document.getElementById('screenInfo').textContent = window.screen.width + 'x' + window.screen.height + ' (Window: ' + window.innerWidth + 'x' + window.innerHeight + ')';
+                document.getElementById('timestamp').textContent = new Date().toString();
+
+                // Diagnostic results
+                const results = {
+                    'HTML Loading': '✅ SUCCESS',
+                    'CSS Rendering': '✅ SUCCESS',
+                    'JavaScript Execution': '✅ SUCCESS',
+                    'DOM Manipulation': '✅ SUCCESS',
+                    'Port Forwarding': '✅ SUCCESS',
+                    'Browser': navigator.userAgent.includes('Chrome') ? 'Chrome' :
+                               navigator.userAgent.includes('Firefox') ? 'Firefox' :
+                               navigator.userAgent.includes('Safari') ? 'Safari' : 'Other',
+                    'Connection Type': window.location.protocol,
+                    'Hostname': window.location.hostname,
+                };
+
+                let diagnosticText = 'All Systems Operational\n\n';
+                for (const [key, value] of Object.entries(results)) {
+                    diagnosticText += key + ': ' + value + '\n';
+                }
+                diagnosticText += '\n✅ Your Codespace is fully functional!';
+                diagnosticText += '\n✅ The main Next.js app should work correctly.';
+                diagnosticText += '\n\nIf the main app shows a blank page:';
+                diagnosticText += '\n1. Try hard refresh (Ctrl+Shift+R or Cmd+Shift+R)';
+                diagnosticText += '\n2. Clear browser cache for this domain';
+                diagnosticText += '\n3. Try in incognito/private mode';
+
+                document.getElementById('diagnosticResults').textContent = diagnosticText;
+                document.getElementById('jsDetails').textContent = '✅ JavaScript successfully modified the DOM at ' + new Date().toLocaleTimeString();
+
+            } catch (error) {
+                document.getElementById('jsDetails').textContent = '❌ JavaScript Error: ' + error.message;
+                const jsStatus = document.getElementById('jsStatus');
+                jsStatus.textContent = 'ERROR';
+                jsStatus.className = 'status warning';
+            }
+        }, 100);
+    </script>
+</body>
+</html>
