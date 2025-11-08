@@ -9,7 +9,8 @@
     "target": "ES2020",
     "sourceMap": true,
     "outDir": "./dist",
-    "baseUrl": "./src",
+    "baseUrl": "./",
+    "rootDir": "./src",
     "incremental": true,
     "skipLibCheck": true,
     "strictNullChecks": false,
@@ -18,10 +19,10 @@
     "forceConsistentCasingInFileNames": false,
     "noFallthroughCasesInSwitch": false,
     "paths": {
-      "@/*": ["./*"],
-      "@/modules/*": ["./modules/*"],
-      "@/common/*": ["./common/*"],
-      "@/config/*": ["./config/*"]
+      "@/*": ["src/*"],
+      "@/modules/*": ["src/modules/*"],
+      "@/common/*": ["src/common/*"],
+      "@/config/*": ["src/config/*"]
     }
   },
   "include": ["src/**/*"],
