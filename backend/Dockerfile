@@ -3,6 +3,9 @@ FROM node:20-alpine AS builder
 
 WORKDIR /app
 
+# Install OpenSSL and other build dependencies for Prisma
+RUN apk add --no-cache openssl openssl-dev
+
 # Copy package files
 COPY package*.json ./
 COPY prisma ./prisma/
@@ -24,8 +27,12 @@ FROM node:20-alpine
 
 WORKDIR /app
 
-# Install dumb-init for proper signal handling in containers
-RUN apk add --no-cache dumb-init
+# Install runtime dependencies: OpenSSL (for Prisma) and dumb-init (for signal handling)
+RUN apk add --no-cache \
+    openssl \
+    openssl-dev \
+    libc6-compat \
+    dumb-init
 
 # Create non-root user for security
 RUN addgroup -g 1001 -S nodejs && \
