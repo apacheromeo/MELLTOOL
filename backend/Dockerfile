@@ -24,24 +24,41 @@ FROM node:20-alpine
 
 WORKDIR /app
 
-# Install production dependencies only
+# Install dumb-init for proper signal handling in containers
+RUN apk add --no-cache dumb-init
+
+# Create non-root user for security
+RUN addgroup -g 1001 -S nodejs && \
+    adduser -S nodejs -u 1001
+
+# Copy package files and prisma schema
 COPY package*.json ./
-RUN npm ci --only=production
+COPY prisma ./prisma/
 
-# Copy built application and Prisma
-COPY --from=builder /app/dist ./dist
-COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
-COPY --from=builder /app/prisma ./prisma
+# Install production dependencies and generate Prisma client
+RUN npm ci --only=production && \
+    npx prisma generate && \
+    npm cache clean --force
 
-# Create uploads directory
-RUN mkdir -p uploads logs
+# Copy built application from builder stage
+COPY --from=builder --chown=nodejs:nodejs /app/dist ./dist
 
-# Expose port
+# Create directories for uploads and logs
+RUN mkdir -p uploads logs && \
+    chown -R nodejs:nodejs uploads logs
+
+# Switch to non-root user
+USER nodejs
+
+# Expose port (fly.io uses PORT env variable, defaults to 3001)
 EXPOSE 3001
 
 # Health check
-HEALTHCHECK --interval=30s --timeout=3s --start-period=40s \
+HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
   CMD node -e "require('http').get('http://localhost:3001/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"
+
+# Use dumb-init to handle signals properly (graceful shutdown)
+ENTRYPOINT ["dumb-init", "--"]
 
 # Start application
 CMD ["npm", "run", "start:prod"]
