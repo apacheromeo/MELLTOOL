@@ -1,10 +1,13 @@
 # Build stage
-FROM node:20-alpine AS builder
+FROM node:20-slim AS builder
 
 WORKDIR /app
 
-# Install OpenSSL and other build dependencies for Prisma
-RUN apk add --no-cache openssl openssl-dev
+# Install OpenSSL and other system dependencies
+RUN apt-get update && apt-get install -y \
+    openssl \
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
 
 # Copy package files
 COPY package*.json ./
@@ -23,20 +26,20 @@ RUN npx prisma generate
 RUN npm run build
 
 # Production stage
-FROM node:20-alpine
+FROM node:20-slim
 
 WORKDIR /app
 
-# Install runtime dependencies: OpenSSL (for Prisma) and dumb-init (for signal handling)
-RUN apk add --no-cache \
+# Install runtime dependencies
+RUN apt-get update && apt-get install -y \
     openssl \
-    openssl-dev \
-    libc6-compat \
-    dumb-init
+    ca-certificates \
+    dumb-init \
+    && rm -rf /var/lib/apt/lists/*
 
 # Create non-root user for security
-RUN addgroup -g 1001 -S nodejs && \
-    adduser -S nodejs -u 1001
+RUN groupadd -g 1001 nodejs && \
+    useradd -r -u 1001 -g nodejs nodejs
 
 # Copy package files and prisma schema
 COPY package*.json ./
@@ -57,7 +60,7 @@ RUN mkdir -p uploads logs && \
 # Switch to non-root user
 USER nodejs
 
-# Expose port (fly.io uses PORT env variable, defaults to 3001)
+# Expose port
 EXPOSE 3001
 
 # Health check
