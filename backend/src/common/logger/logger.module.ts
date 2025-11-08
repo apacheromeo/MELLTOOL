@@ -1,6 +1,6 @@
 import { Global, Module } from '@nestjs/common';
 import { WinstonModule } from 'nest-winston';
-import { winstonConfig } from '../../config/winston.config';
+import { winstonConfig } from '@/config/winston.config';
 
 @Global()
 @Module({

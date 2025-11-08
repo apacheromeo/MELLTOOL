@@ -26,7 +26,7 @@ import { CategoryService } from './category.service';
 import { BrandService } from './brand.service';
 import { BarcodeService } from './barcode.service';
 import { ProductImportService } from './product-import.service';
-import { FileUploadSecurityInterceptor } from '../../common/interceptors/file-upload-security.interceptor';
+import { FileUploadSecurityInterceptor } from '@/common/interceptors/file-upload-security.interceptor';
 
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';

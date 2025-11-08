@@ -6,7 +6,7 @@ import {
 import { AuthGuard } from '@nestjs/passport';
 import { Reflector } from '@nestjs/core';
 import { Observable } from 'rxjs';
-import { RedisService } from '../../../common/redis/redis.service';
+import { RedisService } from '@/common/redis/redis.service';
 import { Request } from 'express';
 
 @Injectable()

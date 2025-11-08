@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { PrismaService } from '../../common/prisma/prisma.service';
-import { RedisService } from '../../common/redis/redis.service';
+import { PrismaService } from '@/common/prisma/prisma.service';
+import { RedisService } from '@/common/redis/redis.service';
 
 @Injectable()
 export class TrendAnalysisService {
@@ -307,11 +307,11 @@ export class TrendAnalysisService {
 
     // Detect declining trend
     const recentData = data.slice(-4); // Last 4 weeks
-    const isDecl ining = recentData.every((d, i) => 
+    const isDeclining = recentData.every((d, i) =>
       i === 0 || d.quantity < recentData[i - 1].quantity
     );
 
-    if (isDecl ining) {
+    if (isDeclining) {
       patterns.push({
         type: 'declining',
         description: 'Consistent decline in recent weeks',

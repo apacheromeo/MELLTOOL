@@ -20,8 +20,8 @@ import { ChangePasswordDto } from './dto/change-password.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { Roles } from './decorators/roles.decorator';
 import { UserRole } from '@prisma/client';
-import { BruteForceGuard } from '../../common/guards/brute-force.guard';
-import { LoginRateLimitGuard } from '../../common/guards/login-rate-limit.guard';
+import { BruteForceGuard } from '@/common/guards/brute-force.guard';
+import { LoginRateLimitGuard } from '@/common/guards/login-rate-limit.guard';
 
 @ApiTags('auth')
 @Controller('auth')

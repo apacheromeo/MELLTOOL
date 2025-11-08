@@ -4,7 +4,7 @@ import {
   BadRequestException,
   NotFoundException,
 } from '@nestjs/common';
-import { PrismaService } from '../../common/prisma/prisma.service';
+import { PrismaService } from '@/common/prisma/prisma.service';
 import { BarcodeService } from './barcode.service';
 import * as XLSX from 'xlsx';
 import * as Papa from 'papaparse';

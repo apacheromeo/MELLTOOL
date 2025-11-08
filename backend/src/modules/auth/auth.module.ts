@@ -10,9 +10,9 @@ import { JwtStrategy } from './strategies/jwt.strategy';
 import { LocalStrategy } from './strategies/local.strategy';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { RolesGuard } from './guards/roles.guard';
-import { BruteForceGuard } from '../../common/guards/brute-force.guard';
-import { LoginRateLimitGuard } from '../../common/guards/login-rate-limit.guard';
-import { RedisModule } from '../../common/redis/redis.module';
+import { BruteForceGuard } from '@/common/guards/brute-force.guard';
+import { LoginRateLimitGuard } from '@/common/guards/login-rate-limit.guard';
+import { RedisModule } from '@/common/redis/redis.module';
 
 @Module({
   imports: [
