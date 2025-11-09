@@ -14,16 +14,18 @@ RUN apt-get update && apt-get install -y \
 COPY backend/package*.json ./
 COPY backend/prisma ./prisma/
 
-# Install dependencies
-RUN npm ci
+# Install dependencies without running postinstall scripts
+# This prevents Prisma from downloading engines during npm ci
+RUN npm ci --ignore-scripts
+
+# Generate Prisma Client explicitly after dependencies are installed
+# This gives us better control and error handling
+RUN npx prisma generate
 
 # Copy source code from backend directory
 COPY backend/ .
 
-# Generate Prisma Client
-RUN npx prisma generate
-
-# Build application
+# Build application (Prisma Client already generated above)
 RUN npm run build
 
 # Production stage
@@ -47,10 +49,14 @@ RUN groupadd -g 1001 nodejs && \
 COPY backend/package*.json ./
 COPY backend/prisma ./prisma/
 
-# Install production dependencies and generate Prisma client
-RUN npm ci --only=production && \
-    npx prisma generate && \
-    npm cache clean --force
+# Install production dependencies without postinstall scripts
+RUN npm ci --only=production --ignore-scripts
+
+# Generate Prisma client explicitly
+RUN npx prisma generate
+
+# Clean npm cache to reduce image size
+RUN npm cache clean --force
 
 # Copy built application from builder stage
 COPY --from=builder --chown=nodejs:nodejs /app/dist ./dist
