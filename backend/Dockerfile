@@ -3,9 +3,10 @@ FROM node:20-slim AS builder
 
 WORKDIR /app
 
-# Install OpenSSL and other system dependencies
+# Install OpenSSL 3 libraries and other system dependencies for Prisma
 RUN apt-get update && apt-get install -y \
     openssl \
+    libssl3 \
     ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
@@ -30,9 +31,10 @@ FROM node:20-slim
 
 WORKDIR /app
 
-# Install runtime dependencies
+# Install runtime dependencies including OpenSSL 3 libraries for Prisma
 RUN apt-get update && apt-get install -y \
     openssl \
+    libssl3 \
     ca-certificates \
     dumb-init \
     && rm -rf /var/lib/apt/lists/*
