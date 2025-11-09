@@ -10,15 +10,15 @@ RUN apt-get update && apt-get install -y \
     ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy package files
-COPY package*.json ./
-COPY prisma ./prisma/
+# Copy package files from backend directory (build context is root)
+COPY backend/package*.json ./
+COPY backend/prisma ./prisma/
 
 # Install dependencies
 RUN npm ci
 
-# Copy source code
-COPY . .
+# Copy source code from backend directory
+COPY backend/ .
 
 # Generate Prisma Client
 RUN npx prisma generate
@@ -43,9 +43,9 @@ RUN apt-get update && apt-get install -y \
 RUN groupadd -g 1001 nodejs && \
     useradd -r -u 1001 -g nodejs nodejs
 
-# Copy package files and prisma schema
-COPY package*.json ./
-COPY prisma ./prisma/
+# Copy package files and prisma schema from backend directory
+COPY backend/package*.json ./
+COPY backend/prisma ./prisma/
 
 # Install production dependencies and generate Prisma client
 RUN npm ci --only=production && \
