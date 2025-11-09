@@ -1,7 +1,7 @@
 # fly.toml app configuration file
 # Generated for melltool-backend
 
-app = "melltool-backend"
+app = "backend-dark-meadow-4198"
 primary_region = "sin"  # Singapore - change to your preferred region
 
 [build]
