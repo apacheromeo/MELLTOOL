@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { createCanvas } from 'canvas';
+// TODO: Install canvas package and uncomment
+// import { createCanvas } from 'canvas';
 import * as JsBarcode from 'jsbarcode';
 
 @Injectable()
@@ -27,9 +28,14 @@ export class BarcodeGeneratorService {
       format = 'CODE128',
     } = options;
 
+    // TODO: Canvas package not yet installed
+    // Uncomment when canvas is added to dependencies
+    throw new Error('Barcode generation temporarily disabled - canvas package needed');
+
+    /*
     try {
       const canvas = createCanvas(200, 150);
-      
+
       JsBarcode(canvas, value, {
         format,
         width,
@@ -48,6 +54,7 @@ export class BarcodeGeneratorService {
       this.logger.error(`Error generating barcode: ${error.message}`, error);
       throw new Error('Failed to generate barcode');
     }
+    */
   }
 
   generateBarcodeDataURL(

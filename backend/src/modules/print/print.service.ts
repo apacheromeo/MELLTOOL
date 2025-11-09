@@ -120,6 +120,7 @@ export class PrintService {
           include: {
             product: {
               select: {
+                id: true,
                 sku: true,
                 name: true,
                 barcode: true,
