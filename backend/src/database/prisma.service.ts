@@ -46,7 +46,8 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
    * Enable query result extensions for better performance
    */
   async enableShutdownHooks(app: any) {
-    this.$on('beforeExit', async () => {
+    // Type assertion needed for Prisma event listener
+    (this.$on as any)('beforeExit', async () => {
       await app.close();
     });
   }

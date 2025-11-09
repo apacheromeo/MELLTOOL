@@ -2,7 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '@/common/prisma/prisma.service';
 import { RedisService } from '@/common/redis/redis.service';
 
-interface PromotionTemplate {
+export interface PromotionTemplate {
   id: string;
   name: string;
   nameTh: string;
@@ -14,7 +14,7 @@ interface PromotionTemplate {
   color: string;
 }
 
-interface PromotionForecast {
+export interface PromotionForecast {
   promotionDate: Date;
   promotionType: string;
   expectedMultiplier: number;

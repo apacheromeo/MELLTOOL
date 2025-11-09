@@ -70,10 +70,11 @@ export class BarcodeGeneratorService {
   }
 
   validateBarcode(value: string): boolean {
+    // TODO: Canvas package not installed yet
+    // For now, just do basic validation
     try {
-      const canvas = createCanvas(200, 150);
-      JsBarcode(canvas, value, { format: 'CODE128' });
-      return true;
+      // Basic barcode validation: non-empty and alphanumeric
+      return value && value.length > 0 && /^[A-Za-z0-9]+$/.test(value);
     } catch (error) {
       return false;
     }

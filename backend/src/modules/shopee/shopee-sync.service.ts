@@ -276,7 +276,7 @@ export class ShopeeSyncService {
           action: 'STOCK_SYNC',
           status: 'SYNCED',
           message: `Stock sync completed: ${result.successful} successful, ${result.failed} failed`,
-          data: result,
+          data: JSON.parse(JSON.stringify(result)), // Serialize PromiseSettledResult properly
         },
       });
 

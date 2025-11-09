@@ -30,7 +30,7 @@ interface ImportRow {
   [key: string]: any;
 }
 
-interface ImportResult {
+export interface ImportResult {
   success: number;
   failed: number;
   errors: Array<{
@@ -344,9 +344,9 @@ export class ProductImportService {
       const result = Papa.parse<ImportRow>(csvString, {
         header: true,
         skipEmptyLines: true,
-        trimHeaders: true,
         transformHeader: (header) => {
           // Normalize header names (case-insensitive, handle common variations)
+          // Trim headers manually since trimHeaders option doesn't exist in types
           const normalized = header.toLowerCase().trim();
           const mappings: Record<string, string> = {
             'product sku': 'sku',
@@ -372,13 +372,13 @@ export class ProductImportService {
 
           return mappings[normalized] || normalized;
         },
-      });
+      }) as Papa.ParseResult<ImportRow>;
 
-      if (result.errors.length > 0) {
+      if (result.errors && result.errors.length > 0) {
         this.logger.warn(`CSV parsing warnings: ${JSON.stringify(result.errors)}`);
       }
 
-      return result.data;
+      return result.data || [];
     } catch (error) {
       throw new BadRequestException(`Failed to parse CSV file: ${error.message}`);
     }

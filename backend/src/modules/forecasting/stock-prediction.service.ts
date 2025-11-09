@@ -2,7 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '@/common/prisma/prisma.service';
 import { RedisService } from '@/common/redis/redis.service';
 
-interface PredictionResult {
+export interface PredictionResult {
   productId: string;
   currentStock: number;
   predictions: Array<{

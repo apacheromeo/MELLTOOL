@@ -330,20 +330,20 @@ export class TrendAnalysisService {
 
     const overallAvg = monthlyData.reduce((sum, d) => sum + d.quantity, 0) / monthlyData.length;
 
-    const indices = monthNames.map((name, index) => {
-      const monthNum = String(index + 1).padStart(2, '0');
+    const indices = monthNames.map((name, monthIndex) => {
+      const monthNum = String(monthIndex + 1).padStart(2, '0');
       const monthData = monthlyData.filter(d => d.month.endsWith(`-${monthNum}`));
-      
+
       if (monthData.length === 0) {
         return { month: name, index: 1.0 };
       }
 
       const monthAvg = monthData.reduce((sum, d) => sum + d.quantity, 0) / monthData.length;
-      const index = overallAvg > 0 ? monthAvg / overallAvg : 1.0;
+      const indexValue = overallAvg > 0 ? monthAvg / overallAvg : 1.0;
 
       return {
         month: name,
-        index: Math.round(index * 100) / 100,
+        index: Math.round(indexValue * 100) / 100,
       };
     });
 
