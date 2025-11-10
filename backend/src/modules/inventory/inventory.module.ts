@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { BullModule } from '@nestjs/bull';
 
+import { PrismaModule } from '@/common/prisma/prisma.module';
 import { InventoryController } from './inventory.controller';
 import { InventoryService } from './inventory.service';
 import { ProductService } from './product.service';
@@ -15,6 +16,7 @@ import { BrandRepository } from './repositories/brand.repository';
 
 @Module({
   imports: [
+    PrismaModule,
     BullModule.registerQueue({
       name: 'inventory-sync',
     }),

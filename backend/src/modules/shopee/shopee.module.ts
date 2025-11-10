@@ -3,6 +3,7 @@ import { ConfigModule } from '@nestjs/config';
 import { BullModule } from '@nestjs/bull';
 import { ScheduleModule } from '@nestjs/schedule';
 
+import { PrismaModule } from '@/common/prisma/prisma.module';
 import { ShopeeController } from './shopee.controller';
 import { ShopeeService } from './shopee.service';
 import { ShopeeAuthService } from './shopee-auth.service';
@@ -15,6 +16,7 @@ import { ShopeeSyncProcessor } from './processors/shopee-sync.processor';
 @Module({
   imports: [
     ConfigModule,
+    PrismaModule,
     ScheduleModule.forRoot(),
     BullModule.registerQueue({
       name: 'shopee-sync',
