@@ -8,6 +8,7 @@ import { PrismaModule } from './common/prisma/prisma.module';
 import { RedisModule } from './common/redis/redis.module';
 import { LoggerModule } from './common/logger/logger.module';
 import { SanitizeMiddleware } from './common/middleware/sanitize.middleware';
+import { HealthModule } from './health/health.module';
 
 // Feature modules
 import { AuthModule } from './modules/auth/auth.module';
@@ -64,6 +65,7 @@ import { validationSchema } from './config/validation';
     PrismaModule,
     RedisModule,
     LoggerModule,
+    HealthModule,
 
     // Feature modules
     AuthModule,
