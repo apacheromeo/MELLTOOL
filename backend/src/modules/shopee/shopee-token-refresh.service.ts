@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
-import { PrismaService } from '../../database/prisma.service';
+import { PrismaService } from '../../common/prisma/prisma.service';
 import { ShopeeApiService } from './shopee-api.service';
 
 @Injectable()
