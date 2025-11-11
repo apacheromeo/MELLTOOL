@@ -1,6 +1,8 @@
 // API Client for backend communication
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+console.log('🔧 API URL configured:', API_URL);
+console.log('🔧 Environment variable:', process.env.NEXT_PUBLIC_API_URL);
 
 class ApiClient {
   private baseURL: string;
