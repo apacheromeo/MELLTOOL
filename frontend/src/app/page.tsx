@@ -6,9 +6,10 @@ import Sidebar from '@/components/Sidebar'
 
 export default function Home() {
   const [apiStatus, setApiStatus] = useState<'checking' | 'online' | 'offline'>('checking')
+  const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'
 
   useEffect(() => {
-    fetch('http://localhost:3001/health')
+    fetch(`${API_URL}/health`)
       .then(() => setApiStatus('online'))
       .catch(() => setApiStatus('offline'))
   }, [])
@@ -125,7 +126,7 @@ export default function Home() {
                   {apiStatus === 'online' ? 'Running' : 'Not Running'}
                 </span>
               </div>
-              <p className="text-xs text-gray-600">http://localhost:3001</p>
+              <p className="text-xs text-gray-600">{API_URL}</p>
             </div>
           </div>
         </div>
