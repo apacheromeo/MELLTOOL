@@ -8,8 +8,8 @@ export class SupabaseService {
   private readonly supabase: SupabaseClient;
 
   constructor(private configService: ConfigService) {
-    const supabaseUrl = this.configService.get('supabase.url');
-    const supabaseKey = this.configService.get('supabase.serviceRoleKey');
+    const supabaseUrl = this.configService.get('app.supabase.url');
+    const supabaseKey = this.configService.get('app.supabase.serviceRoleKey');
 
     if (!supabaseUrl || !supabaseKey) {
       this.logger.error('Supabase configuration missing');

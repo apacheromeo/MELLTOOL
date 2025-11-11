@@ -8,29 +8,40 @@ export class RedisService implements OnModuleDestroy {
   private client: Redis;
 
   constructor(private configService: ConfigService) {
-    const redisUrl = this.configService.get('redis.url');
-    
+    const redisUrl = this.configService.get('app.redis.url');
+
     if (redisUrl) {
       this.client = new Redis(redisUrl);
     } else {
       this.client = new Redis({
-        host: this.configService.get('redis.host', 'localhost'),
-        port: this.configService.get('redis.port', 6379),
-        password: this.configService.get('redis.password'),
+        host: this.configService.get('app.redis.host', 'localhost'),
+        port: this.configService.get('app.redis.port', 6379),
+        password: this.configService.get('app.redis.password'),
         retryStrategy: (times) => {
+          // Stop retrying after 3 attempts
+          if (times > 3) {
+            this.logger.warn('⚠️ Redis unavailable - continuing without cache');
+            return null;
+          }
           const delay = Math.min(times * 50, 2000);
           return delay;
         },
         maxRetriesPerRequest: 3,
+        lazyConnect: true, // Don't connect immediately
       });
     }
+
+    // Try to connect, but don't fail if Redis is unavailable
+    this.client.connect().catch((error) => {
+      this.logger.warn('⚠️ Redis connection failed - running without cache:', error.message);
+    });
 
     this.client.on('connect', () => {
       this.logger.log('✅ Redis connected successfully');
     });
 
     this.client.on('error', (error) => {
-      this.logger.error('❌ Redis connection error:', error);
+      this.logger.warn('⚠️ Redis error (non-critical):', error.message);
     });
 
     this.client.on('close', () => {
