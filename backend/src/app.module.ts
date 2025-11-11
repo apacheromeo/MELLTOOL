@@ -21,6 +21,7 @@ import { ForecastingModule } from './modules/forecasting/forecasting.module';
 
 import { configuration } from './config/configuration';
 import { validationSchema } from './config/validation';
+import { HealthController } from './health.controller';
 
 @Module({
   imports: [
@@ -75,6 +76,7 @@ import { validationSchema } from './config/validation';
     DashboardModule,
     ForecastingModule,
   ],
+  controllers: [HealthController],
 })
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
