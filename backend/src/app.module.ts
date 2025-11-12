@@ -18,6 +18,7 @@ import { PrintModule } from './modules/print/print.module';
 import { SettingsModule } from './modules/settings/settings.module';
 import { DashboardModule } from './modules/dashboard/dashboard.module';
 import { ForecastingModule } from './modules/forecasting/forecasting.module';
+import { SalesModule } from './modules/sales/sales.module';
 
 import { configuration } from './config/configuration';
 import { validationSchema } from './config/validation';
@@ -75,6 +76,7 @@ import { HealthController } from './health.controller';
     SettingsModule,
     DashboardModule,
     ForecastingModule,
+    SalesModule,
   ],
   controllers: [HealthController],
 })
