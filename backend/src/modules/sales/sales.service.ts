@@ -14,6 +14,8 @@ import {
 } from './dto';
 import { SearchPosProductsDto } from './dto/search-pos-products.dto';
 import { ApplyDiscountDto, DiscountType } from './dto/apply-discount.dto';
+import { QuickStartDto } from './dto/quick-start.dto';
+import { AutocompleteDto } from './dto/autocomplete.dto';
 
 /**
  * Sales Service
