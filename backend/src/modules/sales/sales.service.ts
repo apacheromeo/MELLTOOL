@@ -12,6 +12,8 @@ import {
   ConfirmSaleDto,
   UpdateItemDto,
 } from './dto';
+import { SearchPosProductsDto } from './dto/search-pos-products.dto';
+import { ApplyDiscountDto, DiscountType } from './dto/apply-discount.dto';
 
 /**
  * Sales Service
@@ -906,6 +908,384 @@ export class SalesService {
       topProducts,
       staffPerformance,
       orders,
+    };
+  }
+
+  /**
+   * POS-specific: Search products for quick add
+   * Optimized for speed and relevance
+   */
+  async searchPosProducts(dto: SearchPosProductsDto) {
+    const {
+      query,
+      categoryId,
+      brandId,
+      page = 1,
+      limit = 20,
+      inStockOnly = true,
+      minStock,
+    } = dto;
+
+    const skip = (page - 1) * limit;
+
+    const where: any = {
+      isActive: true,
+    };
+
+    // Search by name, SKU, or barcode
+    if (query) {
+      where.OR = [
+        { name: { contains: query, mode: 'insensitive' } },
+        { nameTh: { contains: query, mode: 'insensitive' } },
+        { sku: { contains: query, mode: 'insensitive' } },
+        { barcode: { contains: query, mode: 'insensitive' } },
+      ];
+    }
+
+    // Filter by category
+    if (categoryId) {
+      where.categoryId = categoryId;
+    }
+
+    // Filter by brand
+    if (brandId) {
+      where.brandId = brandId;
+    }
+
+    // Only show products with stock
+    if (inStockOnly) {
+      where.stockQty = { gt: 0 };
+    }
+
+    if (minStock !== undefined) {
+      where.stockQty = { gte: minStock };
+    }
+
+    const [products, total] = await Promise.all([
+      this.prisma.product.findMany({
+        where,
+        select: {
+          id: true,
+          sku: true,
+          name: true,
+          nameTh: true,
+          barcode: true,
+          sellPrice: true,
+          costPrice: true,
+          stockQty: true,
+          imageUrl: true,
+          category: {
+            select: {
+              id: true,
+              name: true,
+              nameTh: true,
+            },
+          },
+          brand: {
+            select: {
+              id: true,
+              name: true,
+              nameTh: true,
+            },
+          },
+        },
+        orderBy: [
+          { stockQty: 'desc' }, // Prioritize items with more stock
+          { name: 'asc' },
+        ],
+        skip,
+        take: limit,
+      }),
+      this.prisma.product.count({ where }),
+    ]);
+
+    return {
+      products,
+      pagination: {
+        page,
+        limit,
+        total,
+        pages: Math.ceil(total / limit),
+      },
+    };
+  }
+
+  /**
+   * Get trending products (most sold in last 30 days)
+   */
+  async getTrendingProducts(limit: number = 10) {
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+    const salesItems = await this.prisma.salesItem.findMany({
+      where: {
+        order: {
+          status: 'CONFIRMED',
+          confirmedAt: {
+            gte: thirtyDaysAgo,
+          },
+        },
+      },
+      include: {
+        product: {
+          select: {
+            id: true,
+            sku: true,
+            name: true,
+            nameTh: true,
+            barcode: true,
+            sellPrice: true,
+            stockQty: true,
+            imageUrl: true,
+            category: {
+              select: {
+                id: true,
+                name: true,
+              },
+            },
+            brand: {
+              select: {
+                id: true,
+                name: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    // Aggregate by product
+    const productSalesMap = new Map<string, {
+      product: any;
+      totalQuantity: number;
+      totalRevenue: number;
+      orderCount: number;
+    }>();
+
+    salesItems.forEach((item) => {
+      const existing = productSalesMap.get(item.productId);
+      if (existing) {
+        existing.totalQuantity += item.quantity;
+        existing.totalRevenue += item.subtotal;
+        existing.orderCount += 1;
+      } else {
+        productSalesMap.set(item.productId, {
+          product: item.product,
+          totalQuantity: item.quantity,
+          totalRevenue: item.subtotal,
+          orderCount: 1,
+        });
+      }
+    });
+
+    // Sort by quantity sold and take top N
+    const trending = Array.from(productSalesMap.values())
+      .sort((a, b) => b.totalQuantity - a.totalQuantity)
+      .slice(0, limit)
+      .map((item) => ({
+        ...item.product,
+        trending: {
+          soldLast30Days: item.totalQuantity,
+          revenueLast30Days: item.totalRevenue,
+          ordersCount: item.orderCount,
+        },
+      }));
+
+    return trending;
+  }
+
+  /**
+   * Get recently sold products (useful for quick repeat orders)
+   */
+  async getRecentProducts(staffId?: string, limit: number = 10) {
+    const where: any = {
+      status: 'CONFIRMED',
+    };
+
+    if (staffId) {
+      where.staffId = staffId;
+    }
+
+    const recentOrders = await this.prisma.salesOrder.findMany({
+      where,
+      include: {
+        items: {
+          include: {
+            product: {
+              select: {
+                id: true,
+                sku: true,
+                name: true,
+                nameTh: true,
+                barcode: true,
+                sellPrice: true,
+                stockQty: true,
+                imageUrl: true,
+                category: {
+                  select: {
+                    id: true,
+                    name: true,
+                  },
+                },
+                brand: {
+                  select: {
+                    id: true,
+                    name: true,
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+      orderBy: {
+        confirmedAt: 'desc',
+      },
+      take: 20, // Get recent orders
+    });
+
+    // Extract unique products
+    const seenProducts = new Set<string>();
+    const recentProducts = [];
+
+    for (const order of recentOrders) {
+      for (const item of order.items) {
+        if (!seenProducts.has(item.productId) && item.product.stockQty > 0) {
+          seenProducts.add(item.productId);
+          recentProducts.push({
+            ...item.product,
+            lastSold: order.confirmedAt,
+          });
+
+          if (recentProducts.length >= limit) {
+            break;
+          }
+        }
+      }
+      if (recentProducts.length >= limit) {
+        break;
+      }
+    }
+
+    return recentProducts;
+  }
+
+  /**
+   * Get products by category (for category-based navigation)
+   */
+  async getProductsByCategory(categoryId: string, limit: number = 20) {
+    const products = await this.prisma.product.findMany({
+      where: {
+        categoryId,
+        isActive: true,
+        stockQty: {
+          gt: 0,
+        },
+      },
+      select: {
+        id: true,
+        sku: true,
+        name: true,
+        nameTh: true,
+        barcode: true,
+        sellPrice: true,
+        stockQty: true,
+        imageUrl: true,
+        category: {
+          select: {
+            id: true,
+            name: true,
+            nameTh: true,
+          },
+        },
+        brand: {
+          select: {
+            id: true,
+            name: true,
+            nameTh: true,
+          },
+        },
+      },
+      orderBy: {
+        name: 'asc',
+      },
+      take: limit,
+    });
+
+    return products;
+  }
+
+  /**
+   * Apply discount to order
+   */
+  async applyDiscount(dto: ApplyDiscountDto) {
+    const { orderId, discountType, discountValue, reason } = dto;
+
+    const order = await this.prisma.salesOrder.findUnique({
+      where: { id: orderId },
+      include: { items: true },
+    });
+
+    if (!order) {
+      throw new NotFoundException('Sales order not found');
+    }
+
+    if (order.status !== 'DRAFT') {
+      throw new BadRequestException('Cannot apply discount to confirmed or canceled order');
+    }
+
+    let discountAmount = 0;
+
+    if (discountType === DiscountType.PERCENTAGE) {
+      if (discountValue < 0 || discountValue > 100) {
+        throw new BadRequestException('Percentage discount must be between 0 and 100');
+      }
+      discountAmount = (order.totalPrice * discountValue) / 100;
+    } else {
+      // Fixed amount
+      if (discountValue < 0) {
+        throw new BadRequestException('Discount amount cannot be negative');
+      }
+      if (discountValue > order.totalPrice) {
+        throw new BadRequestException('Discount amount cannot exceed order total');
+      }
+      discountAmount = discountValue;
+    }
+
+    const newTotalPrice = order.totalPrice - discountAmount;
+    const newProfit = newTotalPrice - order.totalCost;
+
+    // Store discount info in notes
+    const discountNote = reason
+      ? `Discount applied: ${discountType === DiscountType.PERCENTAGE ? `${discountValue}%` : `฿${discountValue}`} - ${reason}`
+      : `Discount applied: ${discountType === DiscountType.PERCENTAGE ? `${discountValue}%` : `฿${discountValue}`}`;
+
+    const updatedOrder = await this.prisma.salesOrder.update({
+      where: { id: orderId },
+      data: {
+        totalPrice: newTotalPrice,
+        profit: newProfit,
+        notes: order.notes ? `${order.notes}\n${discountNote}` : discountNote,
+      },
+      include: {
+        staff: true,
+        items: {
+          include: {
+            product: true,
+          },
+        },
+      },
+    });
+
+    this.logger.log(`Discount applied to order ${orderId}: ${discountType} ${discountValue}`);
+
+    return {
+      ...updatedOrder,
+      discount: {
+        type: discountType,
+        value: discountValue,
+        amount: discountAmount,
+      },
     };
   }
 

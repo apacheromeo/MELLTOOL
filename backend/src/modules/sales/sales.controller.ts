@@ -10,7 +10,7 @@ import {
   UseGuards,
   Request,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
 import { SalesService } from './sales.service';
 import {
   CreateSalesOrderDto,
@@ -19,6 +19,8 @@ import {
   ConfirmSaleDto,
   UpdateItemDto,
 } from './dto';
+import { SearchPosProductsDto } from './dto/search-pos-products.dto';
+import { ApplyDiscountDto } from './dto/apply-discount.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
 /**
@@ -200,6 +202,75 @@ export class SalesController {
     const reportYear = year || new Date().getFullYear();
     const reportMonth = month || new Date().getMonth() + 1;
     return this.salesService.getMonthlyReport(reportYear, reportMonth);
+  }
+
+  /**
+   * GET /api/sales/pos/products/search
+   * Search products for POS (fast, optimized for quick add)
+   */
+  @Get('pos/products/search')
+  @ApiOperation({ summary: 'Search products for POS with advanced filters' })
+  @ApiResponse({ status: 200, description: 'Products found' })
+  @ApiQuery({ name: 'query', required: false, type: String })
+  @ApiQuery({ name: 'categoryId', required: false, type: String })
+  @ApiQuery({ name: 'brandId', required: false, type: String })
+  @ApiQuery({ name: 'page', required: false, type: Number })
+  @ApiQuery({ name: 'limit', required: false, type: Number })
+  @ApiQuery({ name: 'inStockOnly', required: false, type: Boolean })
+  async searchPosProducts(@Query() searchDto: SearchPosProductsDto) {
+    return this.salesService.searchPosProducts(searchDto);
+  }
+
+  /**
+   * GET /api/sales/pos/products/trending
+   * Get trending products (most sold in last 30 days)
+   */
+  @Get('pos/products/trending')
+  @ApiOperation({ summary: 'Get trending/popular products' })
+  @ApiResponse({ status: 200, description: 'Trending products with sales data' })
+  @ApiQuery({ name: 'limit', required: false, type: Number })
+  async getTrendingProducts(@Query('limit') limit?: number) {
+    return this.salesService.getTrendingProducts(limit || 10);
+  }
+
+  /**
+   * GET /api/sales/pos/products/recent
+   * Get recently sold products for quick repeat orders
+   */
+  @Get('pos/products/recent')
+  @ApiOperation({ summary: 'Get recently sold products' })
+  @ApiResponse({ status: 200, description: 'Recently sold products' })
+  @ApiQuery({ name: 'limit', required: false, type: Number })
+  async getRecentProducts(@Request() req: any, @Query('limit') limit?: number) {
+    const staffId = req.user.id;
+    return this.salesService.getRecentProducts(staffId, limit || 10);
+  }
+
+  /**
+   * GET /api/sales/pos/products/category/:categoryId
+   * Get products by category for category-based navigation
+   */
+  @Get('pos/products/category/:categoryId')
+  @ApiOperation({ summary: 'Get products by category' })
+  @ApiResponse({ status: 200, description: 'Products in category' })
+  @ApiQuery({ name: 'limit', required: false, type: Number })
+  async getProductsByCategory(
+    @Param('categoryId') categoryId: string,
+    @Query('limit') limit?: number,
+  ) {
+    return this.salesService.getProductsByCategory(categoryId, limit || 20);
+  }
+
+  /**
+   * POST /api/sales/discount
+   * Apply discount to order (percentage or fixed amount)
+   */
+  @Post('discount')
+  @ApiOperation({ summary: 'Apply discount to order' })
+  @ApiResponse({ status: 200, description: 'Discount applied successfully' })
+  @ApiResponse({ status: 400, description: 'Invalid discount parameters' })
+  async applyDiscount(@Body() dto: ApplyDiscountDto) {
+    return this.salesService.applyDiscount(dto);
   }
 }
 
