@@ -405,6 +405,17 @@ class ApiClient {
     });
   }
 
+  // 🚀 NEW: Quick Start - Get everything in one call
+  async posQuickStart(params?: { query?: string; trendingLimit?: number; recentLimit?: number }) {
+    const query = new URLSearchParams(params as any).toString();
+    return this.request(`/sales/pos/quick-start?${query}`);
+  }
+
+  // ⚡ NEW: Autocomplete search - Super fast
+  async posAutocomplete(query: string) {
+    return this.request(`/sales/pos/autocomplete?query=${encodeURIComponent(query)}`);
+  }
+
   async updateSalesItem(itemId: string, data: {
     quantity?: number;
     unitPrice?: number;
