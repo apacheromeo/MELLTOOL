@@ -47,6 +47,12 @@ class ApiClient {
 
     if (!response.ok) {
       const error = await response.json().catch(() => ({ message: 'Request failed' }));
+
+      // Provide specific error message for authentication failures
+      if (response.status === 401) {
+        throw new Error('Unauthorized - Please login again');
+      }
+
       throw new Error(error.message || `HTTP ${response.status}`);
     }
 
@@ -535,6 +541,18 @@ class ApiClient {
   async getCashFlowReport(params?: { year?: number; month?: number }) {
     const query = new URLSearchParams(params as any).toString();
     return this.request(`/accounting/reports/cash-flow?${query}`);
+  }
+
+  // User management endpoints
+  async getUsers() {
+    return this.request('/auth/users');
+  }
+
+  async toggleUserStatus(userId: string) {
+    return this.request(`/auth/users/${userId}/activate`, {
+      method: 'POST',
+      body: JSON.stringify({ userId }),
+    });
   }
 }
 
