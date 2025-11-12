@@ -19,6 +19,7 @@ import {
   ConfirmSaleDto,
   UpdateItemDto,
 } from './dto';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
 /**
  * Sales Controller
@@ -26,7 +27,8 @@ import {
  */
 @ApiTags('Sales / POS')
 @Controller('sales')
-// @UseGuards(JwtAuthGuard) // Uncomment when auth is ready
+@UseGuards(JwtAuthGuard)
+@ApiBearerAuth()
 export class SalesController {
   constructor(private readonly salesService: SalesService) {}
 
@@ -38,8 +40,7 @@ export class SalesController {
   @ApiOperation({ summary: 'Start a new sales order (draft)' })
   @ApiResponse({ status: 201, description: 'Sales order created' })
   async startSale(@Request() req: any, @Body() dto: CreateSalesOrderDto) {
-    // TODO: Get staffId from authenticated user
-    const staffId = req.user?.id || 'default-staff-id';
+    const staffId = req.user.id;
     return this.salesService.startSale(staffId, dto);
   }
 
@@ -171,6 +172,34 @@ export class SalesController {
   async getDailyReport(@Query('date') date?: string) {
     const reportDate = date ? new Date(date) : new Date();
     return this.salesService.getDailyReport(reportDate);
+  }
+
+  /**
+   * GET /api/sales/report/weekly
+   * Get weekly sales report
+   */
+  @Get('report/weekly')
+  @ApiOperation({ summary: 'Get weekly sales report' })
+  @ApiResponse({ status: 200, description: 'Weekly sales summary' })
+  async getWeeklyReport(@Query('date') date?: string) {
+    const reportDate = date ? new Date(date) : new Date();
+    return this.salesService.getWeeklyReport(reportDate);
+  }
+
+  /**
+   * GET /api/sales/report/monthly
+   * Get monthly sales report
+   */
+  @Get('report/monthly')
+  @ApiOperation({ summary: 'Get monthly sales report' })
+  @ApiResponse({ status: 200, description: 'Monthly sales summary' })
+  async getMonthlyReport(
+    @Query('year') year?: number,
+    @Query('month') month?: number,
+  ) {
+    const reportYear = year || new Date().getFullYear();
+    const reportMonth = month || new Date().getMonth() + 1;
+    return this.salesService.getMonthlyReport(reportYear, reportMonth);
   }
 }
 

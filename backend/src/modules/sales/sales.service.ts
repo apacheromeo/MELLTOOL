@@ -678,6 +678,238 @@ export class SalesService {
   }
 
   /**
+   * Get weekly sales report
+   */
+  async getWeeklyReport(date: Date) {
+    // Get start of week (Monday)
+    const startOfWeek = new Date(date);
+    const day = startOfWeek.getDay();
+    const diff = startOfWeek.getDate() - day + (day === 0 ? -6 : 1); // Adjust when day is Sunday
+    startOfWeek.setDate(diff);
+    startOfWeek.setHours(0, 0, 0, 0);
+
+    // Get end of week (Sunday)
+    const endOfWeek = new Date(startOfWeek);
+    endOfWeek.setDate(startOfWeek.getDate() + 6);
+    endOfWeek.setHours(23, 59, 59, 999);
+
+    const orders = await this.prisma.salesOrder.findMany({
+      where: {
+        status: 'CONFIRMED',
+        confirmedAt: {
+          gte: startOfWeek,
+          lte: endOfWeek,
+        },
+      },
+      include: {
+        items: {
+          include: {
+            product: {
+              select: {
+                id: true,
+                name: true,
+                sku: true,
+              },
+            },
+          },
+        },
+        staff: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+      },
+    });
+
+    const totalOrders = orders.length;
+    const totalRevenue = orders.reduce((sum, order) => sum + order.totalPrice, 0);
+    const totalCost = orders.reduce((sum, order) => sum + order.totalCost, 0);
+    const totalProfit = totalRevenue - totalCost;
+    const totalItemsSold = orders.reduce(
+      (sum, order) => sum + order.items.reduce((s, item) => s + item.quantity, 0),
+      0,
+    );
+
+    // Group by day
+    const dailyBreakdown = [];
+    for (let i = 0; i < 7; i++) {
+      const day = new Date(startOfWeek);
+      day.setDate(startOfWeek.getDate() + i);
+      const dayStart = new Date(day);
+      dayStart.setHours(0, 0, 0, 0);
+      const dayEnd = new Date(day);
+      dayEnd.setHours(23, 59, 59, 999);
+
+      const dayOrders = orders.filter(
+        (order) =>
+          order.confirmedAt >= dayStart && order.confirmedAt <= dayEnd,
+      );
+
+      dailyBreakdown.push({
+        date: day,
+        dayName: day.toLocaleDateString('en-US', { weekday: 'long' }),
+        totalOrders: dayOrders.length,
+        totalRevenue: dayOrders.reduce((sum, order) => sum + order.totalPrice, 0),
+        totalCost: dayOrders.reduce((sum, order) => sum + order.totalCost, 0),
+        totalProfit: dayOrders.reduce((sum, order) => sum + order.profit, 0),
+      });
+    }
+
+    return {
+      startOfWeek,
+      endOfWeek,
+      totalOrders,
+      totalRevenue,
+      totalCost,
+      totalProfit,
+      totalItemsSold,
+      dailyBreakdown,
+      orders,
+    };
+  }
+
+  /**
+   * Get monthly sales report
+   */
+  async getMonthlyReport(year: number, month: number) {
+    // Validate month
+    if (month < 1 || month > 12) {
+      throw new BadRequestException('Month must be between 1 and 12');
+    }
+
+    // Get start and end of month
+    const startOfMonth = new Date(year, month - 1, 1);
+    startOfMonth.setHours(0, 0, 0, 0);
+
+    const endOfMonth = new Date(year, month, 0);
+    endOfMonth.setHours(23, 59, 59, 999);
+
+    const orders = await this.prisma.salesOrder.findMany({
+      where: {
+        status: 'CONFIRMED',
+        confirmedAt: {
+          gte: startOfMonth,
+          lte: endOfMonth,
+        },
+      },
+      include: {
+        items: {
+          include: {
+            product: {
+              select: {
+                id: true,
+                name: true,
+                sku: true,
+                category: {
+                  select: {
+                    id: true,
+                    name: true,
+                  },
+                },
+              },
+            },
+          },
+        },
+        staff: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+      },
+    });
+
+    const totalOrders = orders.length;
+    const totalRevenue = orders.reduce((sum, order) => sum + order.totalPrice, 0);
+    const totalCost = orders.reduce((sum, order) => sum + order.totalCost, 0);
+    const totalProfit = totalRevenue - totalCost;
+    const totalItemsSold = orders.reduce(
+      (sum, order) => sum + order.items.reduce((s, item) => s + item.quantity, 0),
+      0,
+    );
+
+    // Calculate top selling products
+    const productSales = new Map<string, {
+      productId: string;
+      productName: string;
+      sku: string;
+      totalQuantity: number;
+      totalRevenue: number;
+    }>();
+
+    orders.forEach((order) => {
+      order.items.forEach((item) => {
+        const key = item.productId;
+        const existing = productSales.get(key);
+        if (existing) {
+          existing.totalQuantity += item.quantity;
+          existing.totalRevenue += item.subtotal;
+        } else {
+          productSales.set(key, {
+            productId: item.productId,
+            productName: item.productName,
+            sku: item.sku,
+            totalQuantity: item.quantity,
+            totalRevenue: item.subtotal,
+          });
+        }
+      });
+    });
+
+    const topProducts = Array.from(productSales.values())
+      .sort((a, b) => b.totalQuantity - a.totalQuantity)
+      .slice(0, 10);
+
+    // Sales by staff
+    const staffSales = new Map<string, {
+      staffId: string;
+      staffName: string;
+      totalOrders: number;
+      totalRevenue: number;
+      totalProfit: number;
+    }>();
+
+    orders.forEach((order) => {
+      const key = order.staffId;
+      const existing = staffSales.get(key);
+      if (existing) {
+        existing.totalOrders += 1;
+        existing.totalRevenue += order.totalPrice;
+        existing.totalProfit += order.profit;
+      } else {
+        staffSales.set(key, {
+          staffId: order.staffId,
+          staffName: order.staff.name,
+          totalOrders: 1,
+          totalRevenue: order.totalPrice,
+          totalProfit: order.profit,
+        });
+      }
+    });
+
+    const staffPerformance = Array.from(staffSales.values())
+      .sort((a, b) => b.totalRevenue - a.totalRevenue);
+
+    return {
+      year,
+      month,
+      monthName: new Date(year, month - 1).toLocaleDateString('en-US', { month: 'long' }),
+      startOfMonth,
+      endOfMonth,
+      totalOrders,
+      totalRevenue,
+      totalCost,
+      totalProfit,
+      totalItemsSold,
+      profitMargin: totalRevenue > 0 ? ((totalProfit / totalRevenue) * 100).toFixed(2) : '0.00',
+      topProducts,
+      staffPerformance,
+      orders,
+    };
+  }
+
+  /**
    * Private helper: Generate a unique order number
    */
   private generateOrderNumber(): string {
