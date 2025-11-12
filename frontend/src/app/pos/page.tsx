@@ -4,71 +4,92 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { api } from '@/lib/api'
 import { useAuth } from '@/contexts/AuthContext'
 import ProtectedRoute from '@/components/ProtectedRoute'
+import QRScanner from '@/components/pos/QRScanner'
+import OrderFulfillment from '@/components/pos/OrderFulfillment'
+import BrandGrid from '@/components/pos/BrandGrid'
+import CategoryGrid from '@/components/pos/CategoryGrid'
+import ProductGrid from '@/components/pos/ProductGrid'
 import POSCart from '@/components/pos/POSCart'
 import POSCheckout from '@/components/pos/POSCheckout'
 
-interface Product {
-  id: string
-  sku: string
-  name: string
-  nameTh?: string
-  barcode?: string
-  sellPrice: number
-  stockQty: number
-  imageUrl?: string
-  category?: { name: string }
-  brand?: { name: string }
-}
-
-interface QuickStartData {
-  trending: Product[]
-  recent: Product[]
-  categories: any[]
-  brands: any[]
-}
+type ViewMode = 'scanner' | 'fulfillment' | 'brands' | 'categories' | 'products' | 'cart'
 
 function POSPageContent() {
   const { user } = useAuth()
+  // Navigation state
+  const [viewMode, setViewMode] = useState<ViewMode>('scanner')
+  const [selectedBrand, setSelectedBrand] = useState<any>(null)
+  const [selectedCategory, setSelectedCategory] = useState<any>(null)
 
-  // State
-  const [quickStartData, setQuickStartData] = useState<QuickStartData | null>(null)
-  const [searchQuery, setSearchQuery] = useState('')
-  const [searchResults, setSearchResults] = useState<Product[]>([])
-  const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
+  // Data state
+  const [brands, setBrands] = useState<any[]>([])
+  const [categories, setCategories] = useState<any[]>([])
+  const [products, setProducts] = useState<any[]>([])
+
+  // Order state
   const [currentOrder, setCurrentOrder] = useState<any>(null)
   const [cartItems, setCartItems] = useState<any[]>([])
-  const [viewMode, setViewMode] = useState<'products' | 'cart'>('products')
+  const [existingOrder, setExistingOrder] = useState<any>(null)
+  const [scannedItems, setScannedItems] = useState<Record<string, number>>({})
+
+  // Search state - NEW!
+  const [searchQuery, setSearchQuery] = useState('')
+  const [searchResults, setSearchResults] = useState<any[]>([])
+  const [showSearchResults, setShowSearchResults] = useState(false)
+  const searchTimeoutRef = useRef<NodeJS.Timeout>()
+
+  // UI state
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const searchTimeoutRef = useRef<NodeJS.Timeout>()
-
-  // Load Quick Start data on mount
+  // Load initial data
   useEffect(() => {
-    loadQuickStart()
+    loadBrands()
   }, [])
 
-  // Update cart when order changes
+  // Update cart items when order changes
   useEffect(() => {
     if (currentOrder?.items) {
       setCartItems(currentOrder.items)
     }
   }, [currentOrder])
 
-  const loadQuickStart = async () => {
+  const loadBrands = async () => {
+    try {
+      const data = await api.getBrands()
+      setBrands(data.filter((b: any) => b.isActive))
+    } catch (err) {
+      console.error('Failed to load brands:', err)
+    }
+  }
+
+  const loadCategories = async () => {
+    try {
+      const data = await api.getCategories()
+      setCategories(data.filter((c: any) => c.isActive))
+    } catch (err) {
+      console.error('Failed to load categories:', err)
+    }
+  }
+
+  const loadProducts = async (brandId?: string, categoryId?: string) => {
     try {
       setLoading(true)
-      const data = await api.posQuickStart()
-      setQuickStartData(data)
-    } catch (err: any) {
-      console.error('Failed to load POS data:', err)
-      setError('Failed to load POS data')
+      const params: any = { limit: 100 }
+      if (brandId) params.brand = brandId
+      if (categoryId) params.category = categoryId
+
+      const data = await api.getProducts(params)
+      setProducts(data.products || [])
+    } catch (err) {
+      console.error('Failed to load products:', err)
+      setError('Failed to load products')
     } finally {
       setLoading(false)
     }
   }
 
-  // Debounced autocomplete search
+  // NEW: Autocomplete search handler
   const handleSearchChange = useCallback(async (query: string) => {
     setSearchQuery(query)
 
@@ -78,6 +99,7 @@ function POSPageContent() {
 
     if (query.length < 2) {
       setSearchResults([])
+      setShowSearchResults(false)
       return
     }
 
@@ -85,28 +107,24 @@ function POSPageContent() {
       try {
         const results = await api.posAutocomplete(query)
         setSearchResults(results)
+        setShowSearchResults(true)
       } catch (err) {
         console.error('Search failed:', err)
       }
     }, 300)
   }, [])
 
-  const handleStartNewOrder = async () => {
-    try {
-      setLoading(true)
-      setError(null)
-      const order = await api.startSale()
-      setCurrentOrder(order)
-    } catch (err: any) {
-      setError(err.message || 'Failed to start order')
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const handleProductSelect = async (product: Product) => {
+  // NEW: Quick add from search
+  const handleSearchProductSelect = async (product: any) => {
     if (!currentOrder) {
-      await handleStartNewOrder()
+      // Auto-start order if none exists
+      try {
+        const order = await api.startSale()
+        setCurrentOrder(order)
+      } catch (err: any) {
+        setError(err.message || 'Failed to start order')
+        return
+      }
     }
 
     try {
@@ -119,8 +137,92 @@ function POSPageContent() {
       setCurrentOrder(updatedOrder)
       setSearchQuery('')
       setSearchResults([])
+      setShowSearchResults(false)
     } catch (err: any) {
       setError(err.message || 'Failed to add product')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleOrderScanned = async (orderData: any) => {
+    try {
+      setLoading(true)
+      setError(null)
+
+      if (orderData.orderNumber) {
+        try {
+          const existingOrder = await api.getSalesOrderByNumber(orderData.orderNumber)
+          setExistingOrder(existingOrder)
+          setScannedItems({})
+          setViewMode('fulfillment')
+          return
+        } catch (fetchErr: any) {
+          console.log('Order not found, creating new:', fetchErr.message)
+        }
+
+        const order = await api.startSale({ orderNumber: orderData.orderNumber })
+        setCurrentOrder(order)
+        setViewMode('brands')
+      }
+    } catch (err: any) {
+      setError(err.message || 'Failed to process order')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleStartNewOrder = async () => {
+    try {
+      setLoading(true)
+      setError(null)
+      const order = await api.startSale()
+      setCurrentOrder(order)
+      setViewMode('brands')
+    } catch (err: any) {
+      setError(err.message || 'Failed to start order')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleBrandSelect = async (brand: any) => {
+    setSelectedBrand(brand)
+    await loadCategories()
+    setViewMode('categories')
+  }
+
+  const handleCategorySelect = async (category: any) => {
+    setSelectedCategory(category)
+    await loadProducts(selectedBrand?.id, category?.id)
+    setViewMode('products')
+  }
+
+  const handleProductSelect = async (product: any) => {
+    if (!currentOrder) return
+
+    try {
+      setLoading(true)
+      setError(null)
+      const updatedOrder = await api.addProductToSale(currentOrder.id, product.id)
+      setCurrentOrder(updatedOrder)
+    } catch (err: any) {
+      setError(err.message || 'Failed to add product')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleBarcodeScanned = async (barcode: string) => {
+    if (!currentOrder) return
+
+    try {
+      setLoading(true)
+      setError(null)
+      const updatedOrder = await api.scanBarcode(currentOrder.id, barcode)
+      setCurrentOrder(updatedOrder)
+    } catch (err: any) {
+      setError(err.message || 'Failed to scan barcode')
     } finally {
       setLoading(false)
     }
@@ -156,6 +258,7 @@ function POSPageContent() {
     try {
       setLoading(true)
       setError(null)
+
       await api.confirmSale({
         orderId: currentOrder.id,
         ...paymentData,
@@ -163,9 +266,12 @@ function POSPageContent() {
 
       setCurrentOrder(null)
       setCartItems([])
-      setViewMode('products')
+      setSelectedBrand(null)
+      setSelectedCategory(null)
+      setViewMode('scanner')
+
       alert('✅ Order completed successfully!')
-      await loadQuickStart() // Reload to update trending/recent
+
     } catch (err: any) {
       setError(err.message || 'Failed to complete order')
     } finally {
@@ -173,16 +279,33 @@ function POSPageContent() {
     }
   }
 
+  const handleBack = () => {
+    if (viewMode === 'products') {
+      setViewMode('categories')
+      setSelectedCategory(null)
+    } else if (viewMode === 'categories') {
+      setViewMode('brands')
+      setSelectedCategory(null)
+    } else if (viewMode === 'brands') {
+      setViewMode('scanner')
+      setSelectedBrand(null)
+    } else if (viewMode === 'cart') {
+      setViewMode('brands')
+    }
+  }
+
   const handleCancelOrder = async () => {
     if (!currentOrder) return
-    if (!confirm('Cancel this order?')) return
+    if (!confirm('Cancel this order? All items will be removed.')) return
 
     try {
       setLoading(true)
       await api.cancelSale(currentOrder.id)
       setCurrentOrder(null)
       setCartItems([])
-      setViewMode('products')
+      setSelectedBrand(null)
+      setSelectedCategory(null)
+      setViewMode('scanner')
     } catch (err: any) {
       setError(err.message || 'Failed to cancel order')
     } finally {
@@ -190,192 +313,252 @@ function POSPageContent() {
     }
   }
 
-  const displayProducts = searchQuery.length >= 2
-    ? searchResults
-    : selectedCategory
-    ? quickStartData?.trending.filter(p => p.category?.name === selectedCategory)
-    : quickStartData?.trending || []
+  const handleFulfillmentItemScanned = (itemId: string, barcode: string) => {
+    setScannedItems(prev => ({
+      ...prev,
+      [itemId]: (prev[itemId] || 0) + 1
+    }))
+  }
+
+  const handleFulfillmentComplete = async () => {
+    if (!existingOrder) return
+
+    try {
+      setLoading(true)
+      setError(null)
+
+      await api.confirmSale({
+        orderId: existingOrder.id,
+      })
+
+      alert('✅ Order fulfilled and completed successfully!')
+      setExistingOrder(null)
+      setScannedItems({})
+      setViewMode('scanner')
+
+    } catch (err: any) {
+      setError(err.message || 'Failed to complete order')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleFulfillmentCancel = () => {
+    if (confirm('Cancel fulfillment? You will return to the scanner.')) {
+      setExistingOrder(null)
+      setScannedItems({})
+      setViewMode('scanner')
+    }
+  }
 
   const cartCount = cartItems.length
   const cartTotal = currentOrder?.totalPrice || 0
 
-  if (!quickStartData && loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-white to-purple-50">
-        <div className="bg-white rounded-2xl p-8 shadow-2xl">
-          <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-700 font-medium">Loading POS...</p>
-        </div>
-      </div>
-    )
-  }
-
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
       {/* Header */}
-      <div className="bg-white shadow-sm border-b border-gray-200 sticky top-0 z-10">
+      <div className="bg-white shadow-sm border-b border-gray-200">
         <div className="container mx-auto px-6 py-4">
           <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900">🛒 Smart POS</h1>
-              {currentOrder && (
-                <p className="text-sm text-gray-600">Order #{currentOrder.orderNumber}</p>
+            <div className="flex items-center gap-4">
+              {viewMode !== 'scanner' && (
+                <button
+                  onClick={handleBack}
+                  className="p-3 rounded-xl bg-gray-100 hover:bg-gray-200 transition-all active:scale-95"
+                >
+                  <svg className="w-6 h-6 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                  </svg>
+                </button>
               )}
+              <div>
+                <h1 className="text-2xl font-bold text-gray-900">POS System</h1>
+                {currentOrder && (
+                  <p className="text-sm text-gray-600">Order #{currentOrder.orderNumber}</p>
+                )}
+              </div>
             </div>
 
             <div className="flex items-center gap-3">
+              {/* Cart Button */}
               {currentOrder && (
-                <>
-                  <button
-                    onClick={() => setViewMode(viewMode === 'products' ? 'cart' : 'products')}
-                    className="relative p-4 rounded-xl bg-blue-600 hover:bg-blue-700 text-white transition-all active:scale-95 shadow-lg"
-                  >
-                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
-                    </svg>
-                    {cartCount > 0 && (
-                      <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs font-bold rounded-full w-6 h-6 flex items-center justify-center">
-                        {cartCount}
-                      </span>
-                    )}
-                  </button>
-                  <button
-                    onClick={handleCancelOrder}
-                    className="px-6 py-3 rounded-xl bg-red-100 hover:bg-red-200 text-red-700 font-medium transition-all active:scale-95"
-                  >
-                    Cancel
-                  </button>
-                </>
+                <button
+                  onClick={() => setViewMode('cart')}
+                  className="relative p-4 rounded-xl bg-blue-600 hover:bg-blue-700 text-white transition-all active:scale-95 shadow-lg"
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
+                  </svg>
+                  {cartCount > 0 && (
+                    <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs font-bold rounded-full w-6 h-6 flex items-center justify-center">
+                      {cartCount}
+                    </span>
+                  )}
+                </button>
+              )}
+
+              {/* Cancel Order */}
+              {currentOrder && (
+                <button
+                  onClick={handleCancelOrder}
+                  className="px-6 py-3 rounded-xl bg-red-100 hover:bg-red-200 text-red-700 font-medium transition-all active:scale-95"
+                >
+                  Cancel Order
+                </button>
               )}
             </div>
           </div>
+
+          {/* NEW: Search Bar - Always visible when order exists */}
+          {currentOrder && viewMode !== 'cart' && (
+            <div className="mt-4 relative">
+              <div className="relative">
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => handleSearchChange(e.target.value)}
+                  placeholder="🔍 Quick search: Type product name, SKU, or barcode..."
+                  className="w-full px-6 py-4 text-lg border-2 border-blue-300 rounded-xl focus:ring-4 focus:ring-blue-500 focus:border-blue-500 bg-white shadow-lg"
+                />
+                {searchQuery && (
+                  <button
+                    onClick={() => {
+                      setSearchQuery('')
+                      setSearchResults([])
+                      setShowSearchResults(false)
+                    }}
+                    className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                  >
+                    ✕
+                  </button>
+                )}
+              </div>
+
+              {/* Search Results Dropdown */}
+              {showSearchResults && searchResults.length > 0 && (
+                <div className="absolute z-50 w-full mt-2 bg-white rounded-xl shadow-2xl border-2 border-blue-200 max-h-96 overflow-y-auto">
+                  {searchResults.map((product) => (
+                    <button
+                      key={product.id}
+                      onClick={() => handleSearchProductSelect(product)}
+                      disabled={product.stockQty === 0}
+                      className="w-full p-4 hover:bg-blue-50 transition-colors flex items-center gap-4 border-b border-gray-100 last:border-b-0 text-left disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {/* Product Image */}
+                      <div className="w-16 h-16 rounded-lg bg-gray-100 flex-shrink-0 flex items-center justify-center overflow-hidden">
+                        {product.imageUrl ? (
+                          <img
+                            src={product.imageUrl.startsWith('http') ? product.imageUrl : `https://melltool-backend.fly.dev${product.imageUrl}`}
+                            alt={product.name}
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                          </svg>
+                        )}
+                      </div>
+
+                      {/* Product Info */}
+                      <div className="flex-1 min-w-0">
+                        <h3 className="font-bold text-gray-900 truncate">{product.name}</h3>
+                        <p className="text-sm text-gray-600 truncate">{product.sku}</p>
+                        <div className="flex items-center gap-3 mt-1">
+                          <span className="font-bold text-green-600">฿{product.sellPrice?.toLocaleString()}</span>
+                          <span className={`text-xs px-2 py-1 rounded-full ${product.stockQty > 0 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                            {product.stockQty > 0 ? `Stock: ${product.stockQty}` : 'Out of Stock'}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Add Icon */}
+                      {product.stockQty > 0 && (
+                        <div className="flex-shrink-0">
+                          <div className="w-10 h-10 rounded-full bg-blue-600 text-white flex items-center justify-center">
+                            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                            </svg>
+                          </div>
+                        </div>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
 
-      {/* Error */}
+      {/* Error Display */}
       {error && (
         <div className="container mx-auto px-6 py-4">
           <div className="bg-red-50 border-l-4 border-red-500 rounded-lg p-4 flex items-center justify-between">
-            <p className="text-red-900">{error}</p>
-            <button onClick={() => setError(null)} className="text-red-600">
-              ✕
+            <div className="flex items-center gap-3">
+              <svg className="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <p className="text-red-900 font-medium">{error}</p>
+            </div>
+            <button
+              onClick={() => setError(null)}
+              className="text-red-600 hover:text-red-800"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
             </button>
           </div>
         </div>
       )}
 
       {/* Main Content */}
-      {viewMode === 'products' ? (
-        <div className="container mx-auto px-6 py-8">
-          {/* Search Bar */}
-          <div className="mb-8">
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => handleSearchChange(e.target.value)}
-              placeholder="🔍 Search products... (type at least 2 characters)"
-              className="w-full px-6 py-5 text-xl border-2 border-gray-300 rounded-2xl focus:ring-4 focus:ring-blue-500 focus:border-blue-500 shadow-lg"
-              autoFocus
-            />
-            {searchQuery.length >= 2 && searchResults.length > 0 && (
-              <p className="mt-2 text-sm text-gray-600">
-                Found {searchResults.length} products
-              </p>
-            )}
-          </div>
+      <div className="container mx-auto px-6 py-8">
+        {viewMode === 'scanner' && (
+          <QRScanner
+            onOrderScanned={handleOrderScanned}
+            onStartNew={handleStartNewOrder}
+          />
+        )}
 
-          {/* Categories Filter */}
-          {!searchQuery && quickStartData && (
-            <div className="mb-8">
-              <div className="flex items-center gap-3 overflow-x-auto pb-2">
-                <button
-                  onClick={() => setSelectedCategory(null)}
-                  className={`px-6 py-3 rounded-xl font-medium whitespace-nowrap transition-all ${
-                    !selectedCategory
-                      ? 'bg-blue-600 text-white shadow-lg'
-                      : 'bg-white text-gray-700 hover:bg-gray-50'
-                  }`}
-                >
-                  All Categories
-                </button>
-                {quickStartData.categories.map((cat) => (
-                  <button
-                    key={cat.id}
-                    onClick={() => setSelectedCategory(cat.name)}
-                    className={`px-6 py-3 rounded-xl font-medium whitespace-nowrap transition-all ${
-                      selectedCategory === cat.name
-                        ? 'bg-blue-600 text-white shadow-lg'
-                        : 'bg-white text-gray-700 hover:bg-gray-50'
-                    }`}
-                  >
-                    {cat.name} ({cat.productCount})
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
+        {viewMode === 'fulfillment' && existingOrder && (
+          <OrderFulfillment
+            order={existingOrder}
+            onItemScanned={handleFulfillmentItemScanned}
+            onComplete={handleFulfillmentComplete}
+            onCancel={handleFulfillmentCancel}
+            scannedItems={scannedItems}
+          />
+        )}
 
-          {/* Products Section */}
-          {!searchQuery && !selectedCategory && quickStartData && (
-            <>
-              {/* Trending Products */}
-              {quickStartData.trending.length > 0 && (
-                <div className="mb-12">
-                  <h2 className="text-2xl font-bold text-gray-900 mb-6 flex items-center gap-3">
-                    🔥 Trending Products
-                  </h2>
-                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-4">
-                    {quickStartData.trending.map((product) => (
-                      <ProductCard
-                        key={product.id}
-                        product={product}
-                        onSelect={handleProductSelect}
-                      />
-                    ))}
-                  </div>
-                </div>
-              )}
+        {viewMode === 'brands' && (
+          <BrandGrid
+            brands={brands}
+            onSelectBrand={handleBrandSelect}
+            onBarcodeScanned={handleBarcodeScanned}
+            currentOrder={currentOrder}
+          />
+        )}
 
-              {/* Recent Products */}
-              {quickStartData.recent.length > 0 && (
-                <div className="mb-12">
-                  <h2 className="text-2xl font-bold text-gray-900 mb-6 flex items-center gap-3">
-                    ⏱️ Your Recent Products
-                  </h2>
-                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-4">
-                    {quickStartData.recent.map((product) => (
-                      <ProductCard
-                        key={product.id}
-                        product={product}
-                        onSelect={handleProductSelect}
-                      />
-                    ))}
-                  </div>
-                </div>
-              )}
-            </>
-          )}
+        {viewMode === 'categories' && (
+          <CategoryGrid
+            categories={categories}
+            selectedBrand={selectedBrand}
+            onSelectCategory={handleCategorySelect}
+            onBarcodeScanned={handleBarcodeScanned}
+          />
+        )}
 
-          {/* Search/Filter Results */}
-          {(searchQuery || selectedCategory) && (
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-4">
-              {displayProducts.map((product) => (
-                <ProductCard
-                  key={product.id}
-                  product={product}
-                  onSelect={handleProductSelect}
-                />
-              ))}
-              {displayProducts.length === 0 && (
-                <div className="col-span-full text-center py-20">
-                  <p className="text-gray-600 text-lg">No products found</p>
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-      ) : (
-        <div className="container mx-auto px-6 py-8">
+        {viewMode === 'products' && (
+          <ProductGrid
+            products={products}
+            loading={loading}
+            onSelectProduct={handleProductSelect}
+            onBarcodeScanned={handleBarcodeScanned}
+          />
+        )}
+
+        {viewMode === 'cart' && (
           <div className="grid lg:grid-cols-3 gap-6">
             <div className="lg:col-span-2">
               <POSCart
@@ -389,13 +572,13 @@ function POSPageContent() {
               <POSCheckout
                 order={currentOrder}
                 onCheckout={handleCheckout}
-                onBack={() => setViewMode('products')}
+                onBack={() => setViewMode('brands')}
                 disabled={loading}
               />
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </div>
 
       {/* Loading Overlay */}
       {loading && (
@@ -410,59 +593,6 @@ function POSPageContent() {
   )
 }
 
-// Product Card Component
-function ProductCard({ product, onSelect }: { product: Product; onSelect: (p: Product) => void }) {
-  const inStock = product.stockQty > 0
-
-  return (
-    <button
-      onClick={() => onSelect(product)}
-      disabled={!inStock}
-      className={`group bg-white rounded-2xl shadow-lg hover:shadow-2xl p-4 border-2 transition-all text-left ${
-        inStock
-          ? 'border-gray-200 hover:border-blue-500 active:scale-95'
-          : 'border-red-200 opacity-60 cursor-not-allowed'
-      }`}
-    >
-      {/* Product Image */}
-      <div className="w-full aspect-square rounded-xl mb-3 flex items-center justify-center overflow-hidden bg-gradient-to-br from-gray-100 to-gray-200">
-        {product.imageUrl ? (
-          <img
-            src={product.imageUrl.startsWith('http') ? product.imageUrl : `https://melltool-backend.fly.dev${product.imageUrl}`}
-            alt={product.name}
-            className="w-full h-full object-cover"
-          />
-        ) : (
-          <svg className="w-12 h-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
-          </svg>
-        )}
-      </div>
-
-      {/* Product Info */}
-      <h3 className="font-bold text-gray-900 line-clamp-2 min-h-[2.5rem] text-sm group-hover:text-blue-600 transition-colors">
-        {product.name}
-      </h3>
-
-      {/* Price */}
-      <div className="text-lg font-bold text-green-600 mt-2">
-        ฿{product.sellPrice?.toLocaleString()}
-      </div>
-
-      {/* Stock */}
-      <div className="flex items-center justify-between mt-2">
-        <span className="text-xs text-gray-500 font-mono truncate">{product.sku}</span>
-        <span
-          className={`text-xs font-bold px-2 py-1 rounded-full ${
-            !inStock ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'
-          }`}
-        >
-          {!inStock ? 'Out' : product.stockQty}
-        </span>
-      </div>
-    </button>
-  )
-}
 
 export default function POSPage() {
   return (
