@@ -21,6 +21,8 @@ import {
 } from './dto';
 import { SearchPosProductsDto } from './dto/search-pos-products.dto';
 import { ApplyDiscountDto } from './dto/apply-discount.dto';
+import { QuickStartDto } from './dto/quick-start.dto';
+import { AutocompleteDto } from './dto/autocomplete.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
 /**
@@ -33,6 +35,39 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 @ApiBearerAuth()
 export class SalesController {
   constructor(private readonly salesService: SalesService) {}
+
+  /**
+   * 🚀 GET /api/sales/pos/quick-start
+   * SUPER SMART: Get everything staff needs in ONE call!
+   */
+  @Get('pos/quick-start')
+  @ApiOperation({
+    summary: 'Quick Start - Get trending, recent, categories, brands in one call',
+    description: 'Lightning fast! Load POS homepage with all data in a single request.'
+  })
+  @ApiResponse({ status: 200, description: 'Complete POS data' })
+  @ApiQuery({ name: 'query', required: false, type: String })
+  @ApiQuery({ name: 'trendingLimit', required: false, type: Number })
+  @ApiQuery({ name: 'recentLimit', required: false, type: Number })
+  async quickStart(@Request() req: any, @Query() dto: QuickStartDto) {
+    const staffId = req.user.id;
+    return this.salesService.quickStart(staffId, dto);
+  }
+
+  /**
+   * ⚡ GET /api/sales/pos/autocomplete
+   * INSTANT SEARCH: As user types (min 2 chars)
+   */
+  @Get('pos/autocomplete')
+  @ApiOperation({
+    summary: 'Autocomplete search - Super fast as-you-type search',
+    description: 'Returns top 10 matches instantly. Minimum 2 characters.'
+  })
+  @ApiResponse({ status: 200, description: 'Top 10 matching products' })
+  @ApiQuery({ name: 'query', required: true, type: String })
+  async autocomplete(@Query() dto: AutocompleteDto) {
+    return this.salesService.autocomplete(dto);
+  }
 
   /**
    * POST /api/sales/start

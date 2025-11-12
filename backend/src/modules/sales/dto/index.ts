@@ -5,6 +5,8 @@ export * from './confirm-sale.dto';
 export * from './update-item.dto';
 export * from './search-pos-products.dto';
 export * from './apply-discount.dto';
+export * from './quick-start.dto';
+export * from './autocomplete.dto';
 
 
 

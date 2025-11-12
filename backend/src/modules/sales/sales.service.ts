@@ -1290,6 +1290,140 @@ export class SalesService {
   }
 
   /**
+   * 🚀 QUICK START - Everything staff needs in ONE call
+   * Returns trending, recent, categories, and search results
+   * Perfect for POS homepage - load once, search instantly!
+   */
+  async quickStart(staffId: string, dto: QuickStartDto) {
+    const { query, trendingLimit = 6, recentLimit = 6 } = dto;
+
+    // Run all queries in parallel for speed
+    const [trending, recent, categories, brands, searchResults] = await Promise.all([
+      // Trending products
+      this.getTrendingProducts(trendingLimit),
+
+      // Recent products for this staff
+      this.getRecentProducts(staffId, recentLimit),
+
+      // All categories with product counts
+      this.prisma.category.findMany({
+        where: { isActive: true },
+        select: {
+          id: true,
+          name: true,
+          nameTh: true,
+          _count: {
+            select: {
+              products: {
+                where: {
+                  isActive: true,
+                  stockQty: { gt: 0 },
+                },
+              },
+            },
+          },
+        },
+        orderBy: { name: 'asc' },
+      }),
+
+      // All brands with product counts
+      this.prisma.brand.findMany({
+        where: { isActive: true },
+        select: {
+          id: true,
+          name: true,
+          nameTh: true,
+          _count: {
+            select: {
+              products: {
+                where: {
+                  isActive: true,
+                  stockQty: { gt: 0 },
+                },
+              },
+            },
+          },
+        },
+        orderBy: { name: 'asc' },
+      }),
+
+      // If query provided, search products
+      query
+        ? this.searchPosProducts({
+            query,
+            page: 1,
+            limit: 20,
+            inStockOnly: true,
+          })
+        : null,
+    ]);
+
+    return {
+      trending,
+      recent,
+      categories: categories.map((cat) => ({
+        ...cat,
+        productCount: cat._count.products,
+      })),
+      brands: brands.map((brand) => ({
+        ...brand,
+        productCount: brand._count.products,
+      })),
+      searchResults: searchResults || null,
+    };
+  }
+
+  /**
+   * ⚡ AUTOCOMPLETE - Super fast search as user types
+   * Returns top 10 matches instantly (minimum 2 characters)
+   */
+  async autocomplete(dto: AutocompleteDto) {
+    const { query } = dto;
+
+    const products = await this.prisma.product.findMany({
+      where: {
+        isActive: true,
+        stockQty: { gt: 0 },
+        OR: [
+          { name: { contains: query, mode: 'insensitive' } },
+          { nameTh: { contains: query, mode: 'insensitive' } },
+          { sku: { startsWith: query.toUpperCase() } },
+          { barcode: { startsWith: query } },
+        ],
+      },
+      select: {
+        id: true,
+        sku: true,
+        name: true,
+        nameTh: true,
+        barcode: true,
+        sellPrice: true,
+        stockQty: true,
+        imageUrl: true,
+        category: {
+          select: {
+            name: true,
+            nameTh: true,
+          },
+        },
+        brand: {
+          select: {
+            name: true,
+            nameTh: true,
+          },
+        },
+      },
+      orderBy: [
+        { stockQty: 'desc' },
+        { name: 'asc' },
+      ],
+      take: 10, // Only top 10 for speed
+    });
+
+    return products;
+  }
+
+  /**
    * Private helper: Generate a unique order number
    */
   private generateOrderNumber(): string {
