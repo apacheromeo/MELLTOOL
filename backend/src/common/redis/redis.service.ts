@@ -54,24 +54,65 @@ export class RedisService implements OnModuleDestroy {
     this.logger.log('🔌 Redis disconnected');
   }
 
-  // Basic operations
-  async get(key: string): Promise<string | null> {
-    return this.client.get(key);
+  // Check if Redis is connected
+  isConnected(): boolean {
+    return this.client.status === 'ready' || this.client.status === 'connect';
   }
 
-  async set(key: string, value: string, ttl?: number): Promise<'OK'> {
-    if (ttl) {
-      return this.client.setex(key, ttl, value);
+  // Basic operations
+  async get(key: string): Promise<string | null> {
+    try {
+      if (!this.isConnected()) {
+        this.logger.warn('Redis not connected, skipping get operation');
+        return null;
+      }
+      return await this.client.get(key);
+    } catch (error) {
+      this.logger.warn(`Redis get failed for key ${key}:`, error.message);
+      return null;
     }
-    return this.client.set(key, value);
+  }
+
+  async set(key: string, value: string, ttl?: number): Promise<'OK' | null> {
+    try {
+      if (!this.isConnected()) {
+        this.logger.warn('Redis not connected, skipping set operation');
+        return null;
+      }
+      if (ttl) {
+        return await this.client.setex(key, ttl, value);
+      }
+      return await this.client.set(key, value);
+    } catch (error) {
+      this.logger.warn(`Redis set failed for key ${key}:`, error.message);
+      return null;
+    }
   }
 
   async del(key: string): Promise<number> {
-    return this.client.del(key);
+    try {
+      if (!this.isConnected()) {
+        this.logger.warn('Redis not connected, skipping del operation');
+        return 0;
+      }
+      return await this.client.del(key);
+    } catch (error) {
+      this.logger.warn(`Redis del failed for key ${key}:`, error.message);
+      return 0;
+    }
   }
 
   async exists(key: string): Promise<number> {
-    return this.client.exists(key);
+    try {
+      if (!this.isConnected()) {
+        this.logger.warn('Redis not connected, skipping exists operation');
+        return 0;
+      }
+      return await this.client.exists(key);
+    } catch (error) {
+      this.logger.warn(`Redis exists failed for key ${key}:`, error.message);
+      return 0;
+    }
   }
 
   // Hash operations
@@ -131,11 +172,29 @@ export class RedisService implements OnModuleDestroy {
 
   // Expiration
   async expire(key: string, seconds: number): Promise<number> {
-    return this.client.expire(key, seconds);
+    try {
+      if (!this.isConnected()) {
+        this.logger.warn('Redis not connected, skipping expire operation');
+        return 0;
+      }
+      return await this.client.expire(key, seconds);
+    } catch (error) {
+      this.logger.warn(`Redis expire failed for key ${key}:`, error.message);
+      return 0;
+    }
   }
 
   async ttl(key: string): Promise<number> {
-    return this.client.ttl(key);
+    try {
+      if (!this.isConnected()) {
+        this.logger.warn('Redis not connected, skipping ttl operation');
+        return -2; // Redis returns -2 for non-existent keys
+      }
+      return await this.client.ttl(key);
+    } catch (error) {
+      this.logger.warn(`Redis ttl failed for key ${key}:`, error.message);
+      return -2;
+    }
   }
 
   // JSON operations (for complex data)
