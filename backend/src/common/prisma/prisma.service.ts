@@ -6,6 +6,13 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
   private readonly logger = new Logger(PrismaService.name);
 
   constructor() {
+    // Fix for connection pooling - add pgbouncer=true if not present
+    let databaseUrl = process.env.DATABASE_URL;
+    if (databaseUrl && !databaseUrl.includes('pgbouncer=true')) {
+      const separator = databaseUrl.includes('?') ? '&' : '?';
+      databaseUrl = `${databaseUrl}${separator}pgbouncer=true`;
+    }
+
     super({
       log: [
         { emit: 'event', level: 'query' },
@@ -13,6 +20,11 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
         { emit: 'event', level: 'info' },
         { emit: 'event', level: 'warn' },
       ],
+      datasources: {
+        db: {
+          url: databaseUrl,
+        },
+      },
     });
 
     // Log database queries in development
