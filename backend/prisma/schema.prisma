@@ -472,7 +472,7 @@ model DailySalesSummary {
 // Expense Categories
 model ExpenseCategory {
   id          String    @id @default(cuid())
-  name        String
+  name        String    @unique
   nameTh      String?   // Thai name
   description String?
   color       String?   // For UI visualization
@@ -480,23 +480,23 @@ model ExpenseCategory {
   isActive    Boolean   @default(true)
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
-  
+
   // Relations
   expenses    Expense[]
-  
+
   @@map("expense_categories")
 }
 
 // Payment Methods
 model PaymentMethod {
   id          String    @id @default(cuid())
-  name        String    // Cash, Bank Transfer, Credit Card, etc.
+  name        String    @unique    // Cash, Bank Transfer, Credit Card, etc.
   nameTh      String?
   description String?
   isActive    Boolean   @default(true)
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
-  
+
   // Relations
   expenses    Expense[]
   
