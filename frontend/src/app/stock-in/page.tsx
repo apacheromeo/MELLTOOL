@@ -31,6 +31,7 @@ export default function StockInPage() {
   useEffect(() => {
     loadStockIns()
     loadProducts()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   const loadStockIns = async () => {
