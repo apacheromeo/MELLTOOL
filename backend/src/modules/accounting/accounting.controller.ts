@@ -35,6 +35,20 @@ export class AccountingController {
     return this.accountingService.getOverview();
   }
 
+  @Get('expense-categories')
+  @ApiOperation({ summary: 'Get all expense categories' })
+  @ApiResponse({ status: 200, description: 'Categories retrieved successfully' })
+  async getExpenseCategories() {
+    return this.accountingService.getExpenseCategories();
+  }
+
+  @Get('payment-methods')
+  @ApiOperation({ summary: 'Get all payment methods' })
+  @ApiResponse({ status: 200, description: 'Payment methods retrieved successfully' })
+  async getPaymentMethods() {
+    return this.accountingService.getPaymentMethods();
+  }
+
   @Get('expenses')
   @ApiOperation({ summary: 'Get all expenses' })
   @ApiQuery({ name: 'page', required: false, type: Number })

@@ -9,6 +9,26 @@ export class AccountingService {
 
   constructor(private readonly prisma: PrismaService) {}
 
+  // Get expense categories
+  async getExpenseCategories() {
+    const categories = await this.prisma.expenseCategory.findMany({
+      where: { isActive: true },
+      orderBy: { name: 'asc' },
+    });
+
+    return { categories };
+  }
+
+  // Get payment methods
+  async getPaymentMethods() {
+    const paymentMethods = await this.prisma.paymentMethod.findMany({
+      where: { isActive: true },
+      orderBy: { name: 'asc' },
+    });
+
+    return { paymentMethods };
+  }
+
   // Get accounting overview with financial stats
   async getOverview() {
     const today = new Date();
@@ -263,19 +283,19 @@ export class AccountingService {
     // Get sales revenue
     const sales = await this.prisma.salesOrder.findMany({
       where: {
-        status: 'CONFIRMED',
-        confirmedAt: {
+        status: { in: ['COMPLETED', 'PAID'] },
+        completedAt: {
           gte: startDate,
           lte: endDate,
         },
       },
       select: {
-        totalPrice: true,
+        totalAmount: true,
         totalCost: true,
       },
     });
 
-    const totalRevenue = sales.reduce((sum, sale) => sum + sale.totalPrice, 0);
+    const totalRevenue = sales.reduce((sum, sale) => sum + sale.totalAmount, 0);
     const costOfGoodsSold = sales.reduce((sum, sale) => sum + (sale.totalCost || 0), 0);
     const grossProfit = totalRevenue - costOfGoodsSold;
 
@@ -295,15 +315,29 @@ export class AccountingService {
     const totalOperatingExpenses = expenses.reduce((sum, exp) => sum + exp.amount, 0);
     const netProfit = grossProfit - totalOperatingExpenses;
 
-    // Group expenses by category
-    const expensesByCategory = expenses.reduce((acc, exp) => {
-      const catName = exp.category.name;
-      if (!acc[catName]) {
-        acc[catName] = 0;
+    // Group expenses by category name
+    const expenseBreakdown = {
+      rent: 0,
+      utilities: 0,
+      salaries: 0,
+      marketing: 0,
+      other: 0,
+    };
+
+    expenses.forEach(exp => {
+      const catName = exp.category.name.toLowerCase();
+      if (catName.includes('rent')) {
+        expenseBreakdown.rent += exp.amount;
+      } else if (catName.includes('utilit')) {
+        expenseBreakdown.utilities += exp.amount;
+      } else if (catName.includes('salary') || catName.includes('payroll') || catName.includes('wage')) {
+        expenseBreakdown.salaries += exp.amount;
+      } else if (catName.includes('marketing') || catName.includes('advertising')) {
+        expenseBreakdown.marketing += exp.amount;
+      } else {
+        expenseBreakdown.other += exp.amount;
       }
-      acc[catName] += exp.amount;
-      return acc;
-    }, {} as Record<string, number>);
+    });
 
     return {
       period: {
@@ -313,19 +347,21 @@ export class AccountingService {
         endDate,
       },
       revenue: {
-        totalRevenue,
-        costOfGoodsSold,
-        grossProfit,
-        grossProfitMargin: totalRevenue > 0 ? (grossProfit / totalRevenue) * 100 : 0,
+        sales: totalRevenue,
+        other: 0,
+        total: totalRevenue,
       },
+      costs: {
+        cogs: costOfGoodsSold,
+        total: costOfGoodsSold,
+      },
+      grossProfit,
       expenses: {
-        byCategory: expensesByCategory,
-        totalOperatingExpenses,
+        ...expenseBreakdown,
+        total: totalOperatingExpenses,
       },
-      profitability: {
-        netProfit,
-        netProfitMargin: totalRevenue > 0 ? (netProfit / totalRevenue) * 100 : 0,
-      },
+      netProfit,
+      profitMargin: totalRevenue > 0 ? ((netProfit / totalRevenue) * 100).toFixed(1) : '0',
     };
   }
 
@@ -338,6 +374,55 @@ export class AccountingService {
     const startDate = new Date(targetYear, targetMonth - 1, 1);
     const endDate = new Date(targetYear, targetMonth, 0);
 
+    // Get previous month's closing balance (for now, we'll calculate it from previous period)
+    const prevMonthStart = new Date(targetYear, targetMonth - 2, 1);
+    const prevMonthEnd = new Date(targetYear, targetMonth - 1, 0);
+
+    const prevSales = await this.prisma.salesOrder.findMany({
+      where: {
+        status: 'CONFIRMED',
+        confirmedAt: {
+          gte: prevMonthStart,
+          lte: prevMonthEnd,
+        },
+      },
+      select: {
+        totalPrice: true,
+      },
+    });
+
+    const prevExpenses = await this.prisma.expense.findMany({
+      where: {
+        expenseDate: {
+          gte: prevMonthStart,
+          lte: prevMonthEnd,
+        },
+        status: 'PAID',
+      },
+      select: {
+        amount: true,
+      },
+    });
+
+    const prevStockIns = await this.prisma.stockIn.findMany({
+      where: {
+        status: 'RECEIVED',
+        receivedAt: {
+          gte: prevMonthStart,
+          lte: prevMonthEnd,
+        },
+      },
+      select: {
+        totalCost: true,
+      },
+    });
+
+    const prevCashIn = prevSales.reduce((sum, order) => sum + order.totalPrice, 0);
+    const prevCashOut =
+      prevExpenses.reduce((sum, exp) => sum + exp.amount, 0) +
+      prevStockIns.reduce((sum, stock) => sum + stock.totalCost, 0);
+    const openingBalance = prevCashIn - prevCashOut;
+
     // Cash inflows (from sales)
     const salesOrders = await this.prisma.salesOrder.findMany({
       where: {
@@ -349,7 +434,6 @@ export class AccountingService {
       },
       select: {
         totalPrice: true,
-        confirmedAt: true,
       },
     });
 
@@ -366,7 +450,6 @@ export class AccountingService {
       },
       select: {
         amount: true,
-        category: true,
       },
     });
 
@@ -388,24 +471,22 @@ export class AccountingService {
     const totalCashOutflow = expensesOutflow + stockPurchasesOutflow;
 
     const netCashFlow = totalCashInflow - totalCashOutflow;
+    const closingBalance = openingBalance + netCashFlow;
 
     return {
-      period: {
-        year: targetYear,
-        month: targetMonth,
-        startDate,
-        endDate,
-      },
-      cashInflows: {
+      openingBalance,
+      cashIn: {
         sales: totalCashInflow,
+        other: 0,
         total: totalCashInflow,
       },
-      cashOutflows: {
-        operatingExpenses: expensesOutflow,
-        stockPurchases: stockPurchasesOutflow,
+      cashOut: {
+        expenses: expensesOutflow,
+        purchases: stockPurchasesOutflow,
         total: totalCashOutflow,
       },
       netCashFlow,
+      closingBalance,
     };
   }
 }
