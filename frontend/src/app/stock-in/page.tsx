@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { api } from '@/lib/api'
 import Sidebar from '@/components/Sidebar'
 import BarcodePrintLabels from '@/components/BarcodePrintLabels'
@@ -25,10 +26,12 @@ export default function StockInPage() {
   })
   const [printLabels, setPrintLabels] = useState<any[]>([])
   const [showPrintModal, setShowPrintModal] = useState(false)
+  const router = useRouter()
 
   useEffect(() => {
     loadStockIns()
     loadProducts()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   const loadStockIns = async () => {
@@ -38,16 +41,23 @@ export default function StockInPage() {
       const data = await api.getStockIns({ limit: 50 })
       setStockIns(data.stockIns || [])
     } catch (err: any) {
+      const errorMessage = err.message || 'Failed to load stock-ins'
+
+      // If authentication failed, redirect to login
+      if (errorMessage.includes('Unauthorized') || errorMessage.includes('401') || errorMessage.includes('Authentication failed')) {
+        router.push('/login?redirect=/stock-in')
+        return
+      }
+
       // Detect if it's a connection error (backend offline)
-      const isConnectionError = err.message?.includes('fetch') ||
-                                err.message?.includes('NetworkError') ||
-                                err.message?.includes('Failed to fetch') ||
-                                !err.message
+      const isConnectionError = errorMessage.includes('fetch') ||
+                                errorMessage.includes('NetworkError') ||
+                                errorMessage.includes('Failed to fetch')
 
       if (isConnectionError) {
-        setError('🔌 Backend API is offline. Please start the backend server on port 3001.')
+        setError('🔌 Backend API is offline. Please start the backend server.')
       } else {
-        setError(err.message || 'Failed to load stock-ins')
+        setError(errorMessage)
       }
       console.error('Stock-ins error:', err)
       // Set empty state instead of staying in loading
