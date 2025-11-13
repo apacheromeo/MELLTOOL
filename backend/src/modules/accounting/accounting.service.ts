@@ -153,12 +153,12 @@ export class AccountingService {
     const skip = (page - 1) * limit;
 
     const where: any = {};
-    if (status) where.status = status;
-    if (categoryId) where.categoryId = categoryId;
+    if (status && status !== 'undefined') where.status = status;
+    if (categoryId && categoryId !== 'undefined') where.categoryId = categoryId;
     if (startDate || endDate) {
       where.expenseDate = {};
-      if (startDate) where.expenseDate.gte = new Date(startDate);
-      if (endDate) where.expenseDate.lte = new Date(endDate);
+      if (startDate && startDate !== 'undefined') where.expenseDate.gte = new Date(startDate);
+      if (endDate && endDate !== 'undefined') where.expenseDate.lte = new Date(endDate);
     }
 
     const [expenses, total] = await Promise.all([
