@@ -35,7 +35,7 @@ export class AccountingController {
     return this.accountingService.getOverview();
   }
 
-  @Get('expense-categories')
+  @Get('categories')
   @ApiOperation({ summary: 'Get all expense categories' })
   @ApiResponse({ status: 200, description: 'Categories retrieved successfully' })
   async getExpenseCategories() {
