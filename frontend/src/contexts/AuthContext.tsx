@@ -53,6 +53,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const response = await api.login(email, password)
       setUser(response.user)
+
+      // Auto-redirect STAFF users to POS page
+      if (response.user.role === 'STAFF') {
+        router.push('/pos')
+      } else {
+        router.push('/dashboard')
+      }
+
       // Token is already stored by api.login()
     } catch (error: any) {
       throw new Error(error.message || 'Login failed')

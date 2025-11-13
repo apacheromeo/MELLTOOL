@@ -4,9 +4,13 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { api } from '@/lib/api'
 import Sidebar from '@/components/Sidebar'
+import { useAuth } from '@/contexts/AuthContext'
+import { useRoleGuard } from '@/hooks/useRoleGuard'
 
 export default function InventoryPage() {
   const router = useRouter()
+  const { user } = useAuth()
+  const { hasAccess } = useRoleGuard(['OWNER', 'MOD'])
   const [products, setProducts] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -316,6 +320,7 @@ export default function InventoryPage() {
                   product={product}
                   onDelete={handleDelete}
                   onEdit={handleEdit}
+                  userRole={user?.role}
                 />
               ))}
             </div>
@@ -569,21 +574,23 @@ export default function InventoryPage() {
                     </select>
                   </div>
 
-                  {/* Cost Price */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Cost Price (฿) *
-                    </label>
-                    <input
-                      type="number"
-                      required
-                      step="0.01"
-                      value={formData.costPrice}
-                      onChange={(e) => setFormData({ ...formData, costPrice: e.target.value })}
-                      className="input"
-                      placeholder="0.00"
-                    />
-                  </div>
+                  {/* Cost Price - Only for OWNER */}
+                  {user?.role === 'OWNER' && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Cost Price (฿) *
+                      </label>
+                      <input
+                        type="number"
+                        required
+                        step="0.01"
+                        value={formData.costPrice}
+                        onChange={(e) => setFormData({ ...formData, costPrice: e.target.value })}
+                        className="input"
+                        placeholder="0.00"
+                      />
+                    </div>
+                  )}
 
                   {/* Sell Price */}
                   <div>
@@ -632,8 +639,8 @@ export default function InventoryPage() {
                   </div>
                 </div>
 
-                {/* Profit Preview */}
-                {formData.costPrice && formData.sellPrice && (
+                {/* Profit Preview - Only for OWNER */}
+                {user?.role === 'OWNER' && formData.costPrice && formData.sellPrice && (
                   <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-xl">
                     <div className="flex items-center justify-between">
                       <span className="text-sm font-medium text-gray-700">Profit per unit:</span>
@@ -875,8 +882,9 @@ export default function InventoryPage() {
   )
 }
 
-function ProductCard({ product, onDelete, onEdit }: any) {
+function ProductCard({ product, onDelete, onEdit, userRole }: any) {
   const stockStatus = product.stockQty <= product.minStock ? 'low' : 'good'
+  const canSeeCost = userRole === 'OWNER' // Only OWNER can see cost/profit
   // Calculate percentage: if minStock is 0 or undefined, show 100% if stock exists, else 0%
   // Otherwise, show current stock as percentage of (minStock * 2) for visual representation
   const stockPercentage = product.minStock > 0
@@ -932,17 +940,19 @@ function ProductCard({ product, onDelete, onEdit }: any) {
 
       {/* Details Grid */}
       <div className="space-y-2 mb-4">
-        <div className="flex justify-between text-sm">
-          <span className="text-gray-600">Cost Price:</span>
-          <span className="font-semibold text-gray-900">฿{product.costPrice?.toLocaleString()}</span>
-        </div>
+        {canSeeCost && (
+          <div className="flex justify-between text-sm">
+            <span className="text-gray-600">Cost Price:</span>
+            <span className="font-semibold text-gray-900">฿{product.costPrice?.toLocaleString()}</span>
+          </div>
+        )}
         {product.sellPrice && (
           <div className="flex justify-between text-sm">
             <span className="text-gray-600">Sell Price:</span>
             <span className="font-semibold text-green-600">฿{product.sellPrice?.toLocaleString()}</span>
           </div>
         )}
-        {product.sellPrice && product.costPrice && (
+        {canSeeCost && product.sellPrice && product.costPrice && (
           <div className="flex justify-between text-sm">
             <span className="text-gray-600">Profit Margin:</span>
             <span className="font-semibold text-blue-600">
