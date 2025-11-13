@@ -4,11 +4,13 @@ import { createContext, useContext, useState, useEffect, ReactNode } from 'react
 import { api } from '@/lib/api'
 import { useRouter } from 'next/navigation'
 
+export type UserRole = 'OWNER' | 'MOD' | 'STAFF'
+
 interface User {
   id: string
   email: string
   name: string
-  role: 'OWNER' | 'STAFF' | 'ACCOUNTANT'
+  role: UserRole
   isActive: boolean
 }
 
