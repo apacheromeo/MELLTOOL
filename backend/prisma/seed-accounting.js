@@ -1,9 +1,18 @@
 const { PrismaClient } = require('@prisma/client');
 
-const prisma = new PrismaClient();
+const prisma = new PrismaClient({
+  datasources: {
+    db: {
+      url: process.env.DATABASE_URL,
+    },
+  },
+});
 
 async function main() {
   console.log('Seeding accounting data...');
+
+  // Ensure fresh connection
+  await prisma.$connect();
 
   // Seed Expense Categories
   const categories = [
@@ -66,11 +75,16 @@ async function main() {
   ];
 
   for (const category of categories) {
-    await prisma.expenseCategory.upsert({
-      where: { name: category.name },
-      update: {},
-      create: category,
-    });
+    try {
+      await prisma.expenseCategory.upsert({
+        where: { name: category.name },
+        update: {},
+        create: category,
+      });
+      console.log(`✓ ${category.name}`);
+    } catch (error) {
+      console.log(`⚠ ${category.name} (may already exist)`);
+    }
   }
 
   console.log('✅ Expense categories seeded');
@@ -115,11 +129,16 @@ async function main() {
   ];
 
   for (const method of paymentMethods) {
-    await prisma.paymentMethod.upsert({
-      where: { name: method.name },
-      update: {},
-      create: method,
-    });
+    try {
+      await prisma.paymentMethod.upsert({
+        where: { name: method.name },
+        update: {},
+        create: method,
+      });
+      console.log(`✓ ${method.name}`);
+    } catch (error) {
+      console.log(`⚠ ${method.name} (may already exist)`);
+    }
   }
 
   console.log('✅ Payment methods seeded');
