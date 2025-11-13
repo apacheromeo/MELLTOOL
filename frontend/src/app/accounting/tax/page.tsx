@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { api } from '@/lib/api'
+import Sidebar from '@/components/Sidebar'
 
 export default function TaxPage() {
   const router = useRouter()
@@ -71,17 +72,22 @@ export default function TaxPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading tax report...</p>
+      <div className="flex min-h-screen bg-gray-50">
+        <Sidebar />
+        <div className="flex-1 ml-0 lg:ml-64 flex items-center justify-center">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+            <p className="text-gray-600">Loading tax report...</p>
+          </div>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="p-6 max-w-6xl mx-auto">
+    <div className="flex min-h-screen bg-gray-50">
+      <Sidebar />
+      <main className="flex-1 ml-0 lg:ml-64 p-4 sm:p-6 lg:p-8 max-w-6xl">
       <div className="mb-6">
         <h1 className="text-3xl font-bold text-gray-900">Tax Reports</h1>
         <p className="text-gray-600">รายงานภาษี - VAT 7%</p>
@@ -250,6 +256,7 @@ export default function TaxPage() {
           <li>• Keep all tax invoices (ใบกำกับภาษี) for documentation</li>
         </ul>
       </div>
+      </main>
     </div>
   )
 }

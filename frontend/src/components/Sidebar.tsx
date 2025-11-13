@@ -21,6 +21,7 @@ interface MenuItem {
 
 export default function Sidebar() {
   const [isCollapsed, setIsCollapsed] = useState(false)
+  const [isMobileOpen, setIsMobileOpen] = useState(false)
   const [expandedMenus, setExpandedMenus] = useState<string[]>([])
   const pathname = usePathname()
   const router = useRouter()
@@ -31,6 +32,11 @@ export default function Sidebar() {
       await logout()
     }
   }
+
+  // Close mobile menu when route changes
+  useEffect(() => {
+    setIsMobileOpen(false)
+  }, [pathname])
 
 
   const menuItems: MenuItem[] = [
@@ -186,10 +192,33 @@ export default function Sidebar() {
 
   return (
     <>
+      {/* Mobile Menu Toggle Button */}
+      <button
+        onClick={() => setIsMobileOpen(!isMobileOpen)}
+        className="lg:hidden fixed top-4 left-4 z-50 p-2 rounded-lg bg-white shadow-lg border border-gray-200 hover:bg-gray-50 transition"
+      >
+        <svg className="w-6 h-6 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          {isMobileOpen ? (
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+          ) : (
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+          )}
+        </svg>
+      </button>
+
+      {/* Mobile Overlay */}
+      {isMobileOpen && (
+        <div
+          className="lg:hidden fixed inset-0 bg-black/50 z-30"
+          onClick={() => setIsMobileOpen(false)}
+        />
+      )}
+
       {/* Sidebar */}
-      <aside className={`fixed left-0 top-0 h-screen bg-gradient-to-b from-white via-gray-50 to-white border-r border-gray-200 shadow-2xl transition-all duration-300 z-40 overflow-y-auto ${
-        isCollapsed ? 'w-20' : 'w-64'
-      }`}>
+      <aside className={`fixed left-0 top-0 h-screen bg-gradient-to-b from-white via-gray-50 to-white border-r border-gray-200 shadow-2xl transition-all duration-300 z-40 overflow-y-auto
+        ${isCollapsed ? 'w-20' : 'w-64'}
+        ${isMobileOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
+      `}>
         {/* Logo Section */}
         <div className="h-16 flex items-center justify-between px-4 border-b border-gray-200 bg-white sticky top-0 z-10">
           {!isCollapsed && (
@@ -204,7 +233,7 @@ export default function Sidebar() {
           )}
           <button
             onClick={() => setIsCollapsed(!isCollapsed)}
-            className="p-2 rounded-lg hover:bg-gray-100 transition"
+            className="p-2 rounded-lg hover:bg-gray-100 transition hidden lg:block"
           >
             <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               {isCollapsed ? (
@@ -334,9 +363,6 @@ export default function Sidebar() {
           </div>
         )}
       </aside>
-
-      {/* Mobile Overlay */}
-      <div className="lg:hidden fixed inset-0 bg-black/50 z-30" onClick={() => setIsCollapsed(true)} />
     </>
   )
 }
