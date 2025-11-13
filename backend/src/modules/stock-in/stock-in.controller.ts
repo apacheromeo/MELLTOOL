@@ -17,12 +17,13 @@ import { StockInService } from './stock-in.service';
 import { CreateStockInDto } from './dto/create-stock-in.dto';
 import { UpdateStockInDto } from './dto/update-stock-in.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { UserRole } from '@prisma/client';
 
 @ApiTags('stock-in')
 @Controller('stock-in')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, RolesGuard)
 @ApiBearerAuth()
 export class StockInController {
   private readonly logger = new Logger(StockInController.name);
@@ -30,7 +31,7 @@ export class StockInController {
   constructor(private readonly stockInService: StockInService) {}
 
   @Post()
-  @Roles(UserRole.OWNER, UserRole.STAFF)
+  @Roles(UserRole.OWNER, UserRole.MOD)
   @ApiOperation({ summary: 'Create stock-in order' })
   @ApiResponse({ status: 201, description: 'Stock-in created successfully' })
   async create(@Body() createStockInDto: CreateStockInDto, @Request() req) {
@@ -62,7 +63,7 @@ export class StockInController {
   }
 
   @Patch(':id')
-  @Roles(UserRole.OWNER, UserRole.STAFF)
+  @Roles(UserRole.OWNER, UserRole.MOD)
   @ApiOperation({ summary: 'Update stock-in order' })
   @ApiResponse({ status: 200, description: 'Stock-in updated successfully' })
   async update(
@@ -75,7 +76,7 @@ export class StockInController {
   }
 
   @Post(':id/receive')
-  @Roles(UserRole.OWNER, UserRole.STAFF)
+  @Roles(UserRole.OWNER, UserRole.MOD)
   @ApiOperation({ summary: 'Receive stock-in order (updates product stock)' })
   @ApiResponse({ status: 200, description: 'Stock received successfully' })
   async receive(@Param('id') id: string, @Request() req) {
@@ -84,7 +85,7 @@ export class StockInController {
   }
 
   @Post(':id/cancel')
-  @Roles(UserRole.OWNER, UserRole.STAFF)
+  @Roles(UserRole.OWNER, UserRole.MOD)
   @ApiOperation({ summary: 'Cancel stock-in order' })
   @ApiResponse({ status: 200, description: 'Stock-in cancelled successfully' })
   async cancel(@Param('id') id: string, @Request() req) {

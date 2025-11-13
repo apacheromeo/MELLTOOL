@@ -15,12 +15,13 @@ import { Response } from 'express';
 import { PrintService } from './print.service';
 import { CreatePrintJobDto } from './dto/create-print-job.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { UserRole } from '@prisma/client';
 
 @ApiTags('print')
 @Controller('print')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, RolesGuard)
 @ApiBearerAuth()
 export class PrintController {
   private readonly logger = new Logger(PrintController.name);
@@ -28,7 +29,7 @@ export class PrintController {
   constructor(private readonly printService: PrintService) {}
 
   @Post('barcode')
-  @Roles(UserRole.OWNER, UserRole.STAFF)
+  @Roles(UserRole.OWNER, UserRole.MOD)
   @ApiOperation({ summary: 'Generate barcode labels' })
   @ApiResponse({ status: 201, description: 'Print job created' })
   async printBarcode(@Body() createPrintJobDto: CreatePrintJobDto, @Request() req) {
@@ -37,7 +38,7 @@ export class PrintController {
   }
 
   @Post('barcode/batch')
-  @Roles(UserRole.OWNER, UserRole.STAFF)
+  @Roles(UserRole.OWNER, UserRole.MOD)
   @ApiOperation({ summary: 'Generate batch barcode labels' })
   @ApiResponse({ status: 201, description: 'Batch print job created' })
   async printBarcodeBatch(
@@ -77,7 +78,7 @@ export class PrintController {
   }
 
   @Post('jobs/:id/retry')
-  @Roles(UserRole.OWNER, UserRole.STAFF)
+  @Roles(UserRole.OWNER, UserRole.MOD)
   @ApiOperation({ summary: 'Retry failed print job' })
   async retryPrintJob(@Param('id') id: string) {
     return this.printService.retryPrintJob(id);

@@ -16,12 +16,14 @@ import { AccountingService } from './accounting.service';
 import { CreateExpenseDto } from './dto/create-expense.dto';
 import { UpdateExpenseDto } from './dto/update-expense.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { UserRole } from '@prisma/client';
 
 @ApiTags('accounting')
 @Controller('accounting')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Roles(UserRole.OWNER)
 @ApiBearerAuth()
 export class AccountingController {
   private readonly logger = new Logger(AccountingController.name);
@@ -71,8 +73,8 @@ export class AccountingController {
   }
 
   @Post('expenses')
-  @Roles(UserRole.OWNER, UserRole.ACCOUNTANT)
-  @ApiOperation({ summary: 'Create expense' })
+  @Roles(UserRole.OWNER)
+  @ApiOperation({ summary: 'Create expense (Owner only)' })
   @ApiResponse({ status: 201, description: 'Expense created successfully' })
   async createExpense(@Body() createExpenseDto: CreateExpenseDto, @Request() req) {
     this.logger.log(`Creating expense: ${createExpenseDto.title} by user: ${req.user.email}`);
@@ -88,8 +90,8 @@ export class AccountingController {
   }
 
   @Patch('expenses/:id')
-  @Roles(UserRole.OWNER, UserRole.ACCOUNTANT)
-  @ApiOperation({ summary: 'Update expense' })
+  @Roles(UserRole.OWNER)
+  @ApiOperation({ summary: 'Update expense (Owner only)' })
   @ApiResponse({ status: 200, description: 'Expense updated successfully' })
   async updateExpense(
     @Param('id') id: string,
