@@ -4,11 +4,13 @@ import { createContext, useContext, useState, useEffect, ReactNode } from 'react
 import { api } from '@/lib/api'
 import { useRouter } from 'next/navigation'
 
+export type UserRole = 'OWNER' | 'MOD' | 'STAFF'
+
 interface User {
   id: string
   email: string
   name: string
-  role: 'OWNER' | 'STAFF' | 'ACCOUNTANT'
+  role: UserRole
   isActive: boolean
 }
 
@@ -51,6 +53,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const response = await api.login(email, password)
       setUser(response.user)
+
+      // Auto-redirect STAFF users to POS page
+      if (response.user.role === 'STAFF') {
+        router.push('/pos')
+      } else {
+        router.push('/dashboard')
+      }
+
       // Token is already stored by api.login()
     } catch (error: any) {
       throw new Error(error.message || 'Login failed')

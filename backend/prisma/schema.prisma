@@ -37,8 +37,8 @@ model User {
 
 enum UserRole {
   OWNER
+  MOD
   STAFF
-  ACCOUNTANT
 }
 
 // Product Categories

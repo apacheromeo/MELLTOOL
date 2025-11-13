@@ -4,8 +4,10 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { api } from '@/lib/api'
 import Sidebar from '@/components/Sidebar'
+import { useRoleGuard } from '@/hooks/useRoleGuard'
 
 export default function DashboardPage() {
+  const { hasAccess, loading: authLoading } = useRoleGuard(['OWNER', 'MOD'])
   const [loading, setLoading] = useState(true)
   const [overview, setOverview] = useState<any>(null)
   const [error, setError] = useState<string | null>(null)

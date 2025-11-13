@@ -57,7 +57,7 @@ export class ForecastingController {
   }
 
   @Post('promotion/forecast')
-  @Roles(UserRole.OWNER, UserRole.STAFF)
+  @Roles(UserRole.OWNER, UserRole.MOD)
   @ApiOperation({ summary: 'Forecast stock needs for promotion day' })
   @ApiResponse({ status: 200, description: 'Promotion forecast generated' })
   async forecastPromotion(
@@ -148,8 +148,8 @@ export class ForecastingController {
   }
 
   @Post('optimize/inventory')
-  @Roles(UserRole.OWNER, UserRole.ACCOUNTANT)
-  @ApiOperation({ summary: 'Get inventory optimization recommendations' })
+  @Roles(UserRole.OWNER)
+  @ApiOperation({ summary: 'Get inventory optimization recommendations (Owner only)' })
   @ApiResponse({ status: 200, description: 'Optimization recommendations generated' })
   async optimizeInventory() {
     this.logger.log('Generating inventory optimization recommendations');

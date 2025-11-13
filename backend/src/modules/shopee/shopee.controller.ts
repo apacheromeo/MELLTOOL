@@ -106,7 +106,7 @@ export class ShopeeController {
 
   @Post('shops/:shopId/sync/catalog')
   @UseGuards(JwtAuthGuard)
-  @Roles(UserRole.OWNER, UserRole.STAFF)
+  @Roles(UserRole.OWNER, UserRole.MOD)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Sync catalog from Shopee' })
   @ApiResponse({ status: 200, description: 'Catalog sync started' })
@@ -117,7 +117,7 @@ export class ShopeeController {
 
   @Post('shops/:shopId/sync/stock')
   @UseGuards(JwtAuthGuard)
-  @Roles(UserRole.OWNER, UserRole.STAFF)
+  @Roles(UserRole.OWNER, UserRole.MOD)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Sync stock to Shopee' })
   @ApiResponse({ status: 200, description: 'Stock sync started' })
@@ -128,7 +128,7 @@ export class ShopeeController {
 
   @Post('shops/:shopId/sync/full')
   @UseGuards(JwtAuthGuard)
-  @Roles(UserRole.OWNER, UserRole.STAFF)
+  @Roles(UserRole.OWNER, UserRole.MOD)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Full sync (catalog + stock)' })
   @ApiResponse({ status: 200, description: 'Full sync started' })
@@ -161,7 +161,7 @@ export class ShopeeController {
 
   @Post('shops/:shopId/items/:itemId/link')
   @UseGuards(JwtAuthGuard)
-  @Roles(UserRole.OWNER, UserRole.STAFF)
+  @Roles(UserRole.OWNER, UserRole.MOD)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Link Shopee item to product' })
   @ApiResponse({ status: 200, description: 'Item linked successfully' })

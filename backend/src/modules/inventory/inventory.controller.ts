@@ -38,12 +38,13 @@ import { SearchProductsDto } from './dto/search-products.dto';
 import { GenerateBarcodeDto } from './dto/generate-barcode.dto';
 
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { UserRole } from '@prisma/client';
 
 @ApiTags('inventory')
 @Controller('inventory')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, RolesGuard)
 @ApiBearerAuth()
 export class InventoryController {
   private readonly logger = new Logger(InventoryController.name);
@@ -61,7 +62,7 @@ export class InventoryController {
 
   // Products
   @Post('products')
-  @Roles(UserRole.OWNER, UserRole.STAFF)
+  @Roles(UserRole.OWNER, UserRole.MOD)
   @ApiOperation({ summary: 'Create a new product' })
   @ApiResponse({ status: 201, description: 'Product created successfully' })
   async createProduct(@Body() createProductDto: CreateProductDto) {
@@ -133,7 +134,7 @@ export class InventoryController {
   }
 
   @Post('products/import')
-  @Roles(UserRole.OWNER, UserRole.STAFF)
+  @Roles(UserRole.OWNER, UserRole.MOD)
   @UseInterceptors(FileInterceptor('file'), FileUploadSecurityInterceptor)
   @ApiConsumes('multipart/form-data')
   @ApiOperation({ summary: 'Import products from Excel or CSV file' })
@@ -167,7 +168,7 @@ export class InventoryController {
   }
 
   @Patch('products/:id')
-  @Roles(UserRole.OWNER, UserRole.STAFF)
+  @Roles(UserRole.OWNER, UserRole.MOD)
   @ApiOperation({ summary: 'Update product' })
   @ApiResponse({ status: 200, description: 'Product updated successfully' })
   async updateProduct(
@@ -188,7 +189,7 @@ export class InventoryController {
   }
 
   @Post('products/:id/barcode')
-  @Roles(UserRole.OWNER, UserRole.STAFF)
+  @Roles(UserRole.OWNER, UserRole.MOD)
   @ApiOperation({ summary: 'Generate barcode for product' })
   @ApiResponse({ status: 200, description: 'Barcode generated successfully' })
   async generateBarcode(
@@ -200,7 +201,7 @@ export class InventoryController {
   }
 
   @Post('products/:id/image')
-  @Roles(UserRole.OWNER, UserRole.STAFF)
+  @Roles(UserRole.OWNER, UserRole.MOD)
   @UseInterceptors(FileInterceptor('image'), FileUploadSecurityInterceptor)
   @ApiConsumes('multipart/form-data')
   @ApiOperation({ summary: 'Upload product image' })
@@ -220,7 +221,7 @@ export class InventoryController {
 
   // Categories
   @Post('categories')
-  @Roles(UserRole.OWNER, UserRole.STAFF)
+  @Roles(UserRole.OWNER, UserRole.MOD)
   @ApiOperation({ summary: 'Create a new category' })
   @ApiResponse({ status: 201, description: 'Category created successfully' })
   async createCategory(@Body() createCategoryDto: CreateCategoryDto) {
@@ -241,7 +242,7 @@ export class InventoryController {
   }
 
   @Patch('categories/:id')
-  @Roles(UserRole.OWNER, UserRole.STAFF)
+  @Roles(UserRole.OWNER, UserRole.MOD)
   @ApiOperation({ summary: 'Update category' })
   async updateCategory(
     @Param('id') id: string,
@@ -261,7 +262,7 @@ export class InventoryController {
 
   // Brands
   @Post('brands')
-  @Roles(UserRole.OWNER, UserRole.STAFF)
+  @Roles(UserRole.OWNER, UserRole.MOD)
   @ApiOperation({ summary: 'Create a new brand' })
   @ApiResponse({ status: 201, description: 'Brand created successfully' })
   async createBrand(@Body() createBrandDto: CreateBrandDto) {
@@ -282,7 +283,7 @@ export class InventoryController {
   }
 
   @Patch('brands/:id')
-  @Roles(UserRole.OWNER, UserRole.STAFF)
+  @Roles(UserRole.OWNER, UserRole.MOD)
   @ApiOperation({ summary: 'Update brand' })
   async updateBrand(
     @Param('id') id: string,
