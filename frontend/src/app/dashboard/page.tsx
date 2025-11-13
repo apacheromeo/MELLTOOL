@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { api } from '@/lib/api'
 import Sidebar from '@/components/Sidebar'
 
@@ -8,6 +9,7 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true)
   const [overview, setOverview] = useState<any>(null)
   const [error, setError] = useState<string | null>(null)
+  const router = useRouter()
 
   useEffect(() => {
     loadDashboard()
@@ -20,7 +22,15 @@ export default function DashboardPage() {
       const data = await api.getDashboardOverview()
       setOverview(data)
     } catch (err: any) {
-      setError(err.message || 'Failed to load dashboard')
+      const errorMessage = err.message || 'Failed to load dashboard'
+
+      // If authentication failed, redirect to login
+      if (errorMessage.includes('Unauthorized') || errorMessage.includes('401') || errorMessage.includes('Authentication failed')) {
+        router.push('/login?redirect=/dashboard')
+        return
+      }
+
+      setError(errorMessage)
       console.error('Dashboard error:', err)
     } finally {
       setLoading(false)
