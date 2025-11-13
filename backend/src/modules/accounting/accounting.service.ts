@@ -283,19 +283,19 @@ export class AccountingService {
     // Get sales revenue
     const sales = await this.prisma.salesOrder.findMany({
       where: {
-        status: { in: ['COMPLETED', 'PAID'] },
-        completedAt: {
+        status: 'CONFIRMED',
+        confirmedAt: {
           gte: startDate,
           lte: endDate,
         },
       },
       select: {
-        totalAmount: true,
+        totalPrice: true,
         totalCost: true,
       },
     });
 
-    const totalRevenue = sales.reduce((sum, sale) => sum + sale.totalAmount, 0);
+    const totalRevenue = sales.reduce((sum, sale) => sum + sale.totalPrice, 0);
     const costOfGoodsSold = sales.reduce((sum, sale) => sum + (sale.totalCost || 0), 0);
     const grossProfit = totalRevenue - costOfGoodsSold;
 
