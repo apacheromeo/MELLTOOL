@@ -18,19 +18,19 @@ export class AccountingService {
     // Get all sales (revenue)
     const sales = await this.prisma.salesOrder.findMany({
       where: {
-        status: { in: ['COMPLETED', 'PAID'] },
-        completedAt: {
+        status: 'CONFIRMED',
+        confirmedAt: {
           gte: startOfMonth,
           lte: endOfMonth,
         },
       },
       select: {
-        totalAmount: true,
+        totalPrice: true,
         totalCost: true,
       },
     });
 
-    const totalRevenue = sales.reduce((sum, sale) => sum + sale.totalAmount, 0);
+    const totalRevenue = sales.reduce((sum, sale) => sum + sale.totalPrice, 0);
     const totalCost = sales.reduce((sum, sale) => sum + (sale.totalCost || 0), 0);
     const grossProfit = totalRevenue - totalCost;
 
@@ -263,19 +263,19 @@ export class AccountingService {
     // Get sales revenue
     const sales = await this.prisma.salesOrder.findMany({
       where: {
-        status: { in: ['COMPLETED', 'PAID'] },
-        completedAt: {
+        status: 'CONFIRMED',
+        confirmedAt: {
           gte: startDate,
           lte: endDate,
         },
       },
       select: {
-        totalAmount: true,
+        totalPrice: true,
         totalCost: true,
       },
     });
 
-    const totalRevenue = sales.reduce((sum, sale) => sum + sale.totalAmount, 0);
+    const totalRevenue = sales.reduce((sum, sale) => sum + sale.totalPrice, 0);
     const costOfGoodsSold = sales.reduce((sum, sale) => sum + (sale.totalCost || 0), 0);
     const grossProfit = totalRevenue - costOfGoodsSold;
 
@@ -341,19 +341,19 @@ export class AccountingService {
     // Cash inflows (from sales)
     const salesOrders = await this.prisma.salesOrder.findMany({
       where: {
-        status: { in: ['COMPLETED', 'PAID'] },
-        completedAt: {
+        status: 'CONFIRMED',
+        confirmedAt: {
           gte: startDate,
           lte: endDate,
         },
       },
       select: {
-        totalAmount: true,
-        completedAt: true,
+        totalPrice: true,
+        confirmedAt: true,
       },
     });
 
-    const totalCashInflow = salesOrders.reduce((sum, order) => sum + order.totalAmount, 0);
+    const totalCashInflow = salesOrders.reduce((sum, order) => sum + order.totalPrice, 0);
 
     // Cash outflows (from expenses and stock purchases)
     const expenses = await this.prisma.expense.findMany({
