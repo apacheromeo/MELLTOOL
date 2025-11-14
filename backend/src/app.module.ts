@@ -50,16 +50,34 @@ import { HealthController } from './health.controller';
     // Task scheduling
     ScheduleModule.forRoot(),
 
-    // Queue management
+    // Queue management - with graceful Redis fallback
     BullModule.forRootAsync({
       imports: [ConfigModule],
-      useFactory: (configService: ConfigService) => ({
-        redis: {
-          host: configService.get('REDIS_HOST', 'localhost'),
-          port: configService.get('REDIS_PORT', 6379),
-          password: configService.get('REDIS_PASSWORD'),
-        },
-      }),
+      useFactory: (configService: ConfigService) => {
+        const redisHost = configService.get('REDIS_HOST');
+        const redisPort = configService.get('REDIS_PORT', 6379);
+
+        // If Redis is not configured, return minimal config
+        // Bull will attempt to connect but won't block startup
+        return {
+          redis: {
+            host: redisHost || 'localhost',
+            port: redisPort,
+            password: configService.get('REDIS_PASSWORD'),
+            maxRetriesPerRequest: 3,
+            enableReadyCheck: false, // Don't wait for Redis to be ready
+            connectTimeout: 5000, // 5 second connection timeout
+            lazyConnect: true, // Don't connect immediately
+            retryStrategy: (times) => {
+              // Stop retrying after 3 attempts to avoid blocking
+              if (times > 3) {
+                return null;
+              }
+              return Math.min(times * 100, 1000);
+            },
+          },
+        };
+      },
       inject: [ConfigService],
     }),
 
