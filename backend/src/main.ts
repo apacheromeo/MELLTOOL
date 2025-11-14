@@ -15,6 +15,19 @@ import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
 import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
 
 async function bootstrap() {
+  const logger = new Logger('Bootstrap');
+
+  // Handle unhandled promise rejections (especially from Redis/Bull)
+  process.on('unhandledRejection', (reason: any, promise) => {
+    // Only log Redis connection errors as warnings, don't crash
+    if (reason?.code === 'ECONNREFUSED' && reason?.port === 6379) {
+      logger.warn('⚠️  Redis connection failed (non-critical) - app continues without queue support');
+      return;
+    }
+    // For other unhandled rejections, log as error but don't crash
+    logger.error('Unhandled Rejection at:', promise, 'reason:', reason);
+  });
+
   // Initialize Sentry
   Sentry.init({
     dsn: process.env.SENTRY_DSN,
@@ -127,7 +140,6 @@ async function bootstrap() {
   // Listen on 0.0.0.0 to accept connections from Fly.io proxy
   await app.listen(port, '0.0.0.0');
 
-  const logger = new Logger('Bootstrap');
   logger.log(`🚀 Application is running on: http://0.0.0.0:${port}`);
   logger.log(`📚 API Documentation: http://0.0.0.0:${port}/api/docs`);
 }
