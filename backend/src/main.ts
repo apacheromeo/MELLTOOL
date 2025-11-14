@@ -124,11 +124,12 @@ async function bootstrap() {
   const document = SwaggerModule.createDocument(app, config);
   SwaggerModule.setup('api/docs', app, document);
 
-  await app.listen(port);
-  
+  // Listen on 0.0.0.0 to accept connections from Fly.io proxy
+  await app.listen(port, '0.0.0.0');
+
   const logger = new Logger('Bootstrap');
-  logger.log(`🚀 Application is running on: http://localhost:${port}`);
-  logger.log(`📚 API Documentation: http://localhost:${port}/api/docs`);
+  logger.log(`🚀 Application is running on: http://0.0.0.0:${port}`);
+  logger.log(`📚 API Documentation: http://0.0.0.0:${port}/api/docs`);
 }
 
 bootstrap().catch((error) => {
