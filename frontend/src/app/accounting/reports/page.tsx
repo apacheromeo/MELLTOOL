@@ -39,7 +39,7 @@ export default function ReportsPage() {
     return (
       <div className="flex min-h-screen bg-gray-50">
         <Sidebar />
-        <main className="flex-1 ml-64 p-8">
+        <main className="flex-1 ml-0 lg:ml-64 p-4 md:p-6 lg:p-8">
           <div className="animate-pulse space-y-6">
             <div className="h-10 bg-gray-200 rounded w-1/4"></div>
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -57,7 +57,7 @@ export default function ReportsPage() {
     return (
       <div className="flex min-h-screen bg-gray-50">
         <Sidebar />
-        <main className="flex-1 ml-64 p-8">
+        <main className="flex-1 ml-0 lg:ml-64 p-4 md:p-6 lg:p-8">
           <div className="card p-6 border-l-4 border-red-500 bg-red-50">
             <p className="text-red-900 font-medium">{error}</p>
             <button onClick={loadReports} className="mt-4 btn-primary">
@@ -72,8 +72,8 @@ export default function ReportsPage() {
   return (
     <div className="flex min-h-screen bg-gray-50">
       <Sidebar />
-      
-      <main className="flex-1 ml-64 p-8">
+
+      <main className="flex-1 ml-0 lg:ml-64 p-4 md:p-6 lg:p-8">
         {/* Header */}
         <div className="mb-8">
           <div className="flex items-center justify-between">
