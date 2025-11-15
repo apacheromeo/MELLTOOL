@@ -376,6 +376,39 @@ export default function Sidebar() {
             </button>
           </div>
         )}
+
+        {/* Login Button for Unauthenticated Users */}
+        {!isCollapsed && !user && (
+          <div className="p-4 border-t border-gray-200 bg-white flex-shrink-0">
+            <button
+              onClick={() => router.push('/login')}
+              className="w-full py-3 px-4 bg-gradient-to-r from-blue-600 to-purple-600 text-white font-semibold rounded-xl hover:from-blue-700 hover:to-purple-700 transition-all shadow-lg hover:shadow-xl flex items-center justify-center gap-2"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
+              </svg>
+              <span>Sign In</span>
+            </button>
+            <p className="text-center text-xs text-gray-500 mt-2">
+              เข้าสู่ระบบ
+            </p>
+          </div>
+        )}
+
+        {/* Collapsed Login Button */}
+        {isCollapsed && !user && (
+          <div className="p-3 border-t border-gray-200 bg-white flex-shrink-0">
+            <button
+              onClick={() => router.push('/login')}
+              className="w-10 h-10 mx-auto rounded-full bg-gradient-to-br from-blue-600 to-purple-600 flex items-center justify-center text-white hover:ring-2 hover:ring-blue-300 transition shadow-lg"
+              title="Sign In"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
+              </svg>
+            </button>
+          </div>
+        )}
       </aside>
     </>
   )
