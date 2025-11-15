@@ -229,12 +229,12 @@ export default function Sidebar() {
       )}
 
       {/* Sidebar */}
-      <aside className={`fixed left-0 top-0 h-screen bg-gradient-to-b from-white via-gray-50 to-white border-r border-gray-200 shadow-2xl transition-all duration-300 z-40 overflow-y-auto
+      <aside className={`fixed left-0 top-0 h-screen bg-gradient-to-b from-white via-gray-50 to-white border-r border-gray-200 shadow-2xl transition-all duration-300 z-40 flex flex-col
         ${isCollapsed ? 'w-20' : 'w-64'}
         ${isMobileOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
       `}>
         {/* Logo Section */}
-        <div className="h-16 flex items-center justify-between px-4 border-b border-gray-200 bg-white sticky top-0 z-10">
+        <div className="h-16 flex items-center justify-between px-4 border-b border-gray-200 bg-white flex-shrink-0">
           {!isCollapsed && (
             <Link href="/" className="flex items-center gap-2 group">
               <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center transform group-hover:scale-110 transition-transform duration-300">
@@ -260,7 +260,7 @@ export default function Sidebar() {
         </div>
 
         {/* Navigation Menu */}
-        <nav className="p-3 space-y-1">
+        <nav className="p-3 space-y-1 flex-1 overflow-y-auto">
           {menuItems.map((item) => {
             const active = isActive(item.href)
             const hasSubItems = item.subItems && item.subItems.length > 0
@@ -342,7 +342,7 @@ export default function Sidebar() {
 
         {/* User Profile Section */}
         {!isCollapsed && user && (
-          <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-gray-200 bg-white">
+          <div className="p-4 border-t border-gray-200 bg-white flex-shrink-0">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-semibold">
                 {user.name.charAt(0).toUpperCase()}
@@ -366,7 +366,7 @@ export default function Sidebar() {
 
         {/* Collapsed User Profile */}
         {isCollapsed && user && (
-          <div className="absolute bottom-0 left-0 right-0 p-3 border-t border-gray-200 bg-white">
+          <div className="p-3 border-t border-gray-200 bg-white flex-shrink-0">
             <button
               onClick={handleLogout}
               className="w-10 h-10 mx-auto rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-semibold hover:ring-2 hover:ring-blue-300 transition"
