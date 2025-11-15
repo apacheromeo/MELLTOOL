@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { api } from '@/lib/api'
 import Sidebar from '@/components/Sidebar'
+import { exportExpenseReportPDF } from '@/lib/pdf-export'
 
 export default function ExpensesPage() {
   const [expenses, setExpenses] = useState<any[]>([])
@@ -41,12 +42,34 @@ export default function ExpensesPage() {
 
   const handleDelete = async (id: string) => {
     if (!confirm('Are you sure you want to delete this expense?')) return
-    
+
     try {
       await api.deleteExpense(id)
       loadData()
     } catch (err: any) {
       alert('Failed to delete expense: ' + err.message)
+    }
+  }
+
+  const handleExportPDF = async () => {
+    try {
+      // Format expenses for PDF
+      const formattedExpenses = expenses.map(expense => ({
+        date: expense.date || new Date().toISOString(),
+        description: expense.title || expense.description || 'N/A',
+        category: expense.category?.name || 'Uncategorized',
+        amount: expense.amount || 0,
+        status: expense.status || 'PENDING',
+        paymentMethod: expense.paymentMethod?.name || 'N/A',
+      }))
+
+      await exportExpenseReportPDF({
+        expenses: formattedExpenses,
+        categories: categories,
+      })
+    } catch (error) {
+      console.error('Failed to export PDF:', error)
+      alert('Failed to export PDF. Please try again.')
     }
   }
 
@@ -62,15 +85,27 @@ export default function ExpensesPage() {
               <h1 className="text-3xl font-bold text-gray-900">Expenses</h1>
               <p className="text-gray-600 mt-1">Track and manage all business expenses</p>
             </div>
-            <button
-              onClick={() => setShowAddModal(true)}
-              className="btn-primary flex items-center gap-2"
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-              </svg>
-              Add Expense
-            </button>
+            <div className="flex gap-2">
+              <button
+                onClick={handleExportPDF}
+                className="btn-secondary flex items-center gap-2"
+                disabled={loading || expenses.length === 0}
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                Export PDF
+              </button>
+              <button
+                onClick={() => setShowAddModal(true)}
+                className="btn-primary flex items-center gap-2"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                </svg>
+                Add Expense
+              </button>
+            </div>
           </div>
         </div>
 
