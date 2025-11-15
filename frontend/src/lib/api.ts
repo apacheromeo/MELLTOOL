@@ -247,7 +247,7 @@ class ApiClient {
 
       // Get the blob from response
       const blob = await response.blob();
-      
+
       // Validate blob
       if (!blob || blob.size === 0) {
         throw new Error('Downloaded file is empty or invalid');
@@ -267,19 +267,19 @@ class ApiClient {
       }
 
       // Create download link and trigger download
-      const url = window.URL.createObjectURL(blob);
+      const downloadUrl = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
-      link.href = url;
+      link.href = downloadUrl;
       link.download = 'product-import-template.xlsx';
       link.style.display = 'none';
-      
+
       document.body.appendChild(link);
       link.click();
-      
+
       // Clean up
       setTimeout(() => {
         document.body.removeChild(link);
-        window.URL.revokeObjectURL(url);
+        window.URL.revokeObjectURL(downloadUrl);
       }, 100);
     } catch (error: any) {
       console.error('Template download error:', error);
