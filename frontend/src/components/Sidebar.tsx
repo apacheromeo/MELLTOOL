@@ -170,8 +170,12 @@ export default function Sidebar() {
 
   // Filter menu items based on user role
   const menuItems = allMenuItems.filter(item => {
-    if (!user || !item.roles) return true // Show all items if no role restriction
-    return item.roles.includes(user.role)
+    // If no user yet, don't show any items with role restrictions
+    if (!user && item.roles) return false
+    // If item has no role restriction, always show it
+    if (!item.roles) return true
+    // Otherwise check if user's role is included
+    return user && item.roles.includes(user.role)
   })
 
   // Auto-expand menu when on a sub-page
