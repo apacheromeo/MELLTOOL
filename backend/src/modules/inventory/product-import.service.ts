@@ -389,87 +389,167 @@ export class ProductImportService {
    */
   async generateTemplate(): Promise<Buffer> {
     try {
+      this.logger.log('Starting template generation');
+
+      // Get active categories and brands for reference
+      const categories = await this.prisma.category.findMany({
+        where: { isActive: true },
+        select: { name: true },
+        take: 5,
+      });
+
+      const brands = await this.prisma.brand.findMany({
+        where: { isActive: true },
+        select: { name: true },
+        take: 5,
+      });
+
+      const categoryExample = categories[0]?.name || 'Electronics';
+      const brandExample = brands[0]?.name || 'Brand Name';
+
+      // Template data with example rows
       const templateData = [
         {
           sku: 'PROD-001',
-          name: 'Sample Product',
-          nameTh: 'ตัวอย่างสินค้า',
+          name: 'Sample Product 1',
+          nameTh: 'ตัวอย่างสินค้า 1',
           description: 'Product description',
           descriptionTh: 'คำอธิบายสินค้า',
-          weight: '500',
+          weight: 500,
           dimensions: '10x10x5',
           color: 'Red',
-          costPrice: '1000',
-          sellPrice: '1500',
-          stockQty: '50',
-          minStock: '10',
-          maxStock: '200',
+          costPrice: 1000,
+          sellPrice: 1500,
+          stockQty: 50,
+          minStock: 10,
+          maxStock: 200,
           barcode: '',
-          category: 'Electronics',
-          brand: 'Brand Name',
+          category: categoryExample,
+          brand: brandExample,
+          isDigital: 'false',
+        },
+        {
+          sku: 'PROD-002',
+          name: 'Sample Product 2',
+          nameTh: 'ตัวอย่างสินค้า 2',
+          description: 'Another product',
+          descriptionTh: 'สินค้าอีกชิ้น',
+          weight: 300,
+          dimensions: '5x5x3',
+          color: 'Blue',
+          costPrice: 500,
+          sellPrice: 800,
+          stockQty: 100,
+          minStock: 20,
+          maxStock: 500,
+          barcode: '',
+          category: categoryExample,
+          brand: brandExample,
           isDigital: 'false',
         },
       ];
 
-      this.logger.log('Creating Excel workbook');
-      
-      // Create workbook
+      this.logger.log('Creating Excel workbook with template data');
+
+      // Create workbook and worksheet
       const workbook = XLSX.utils.book_new();
-      
-      // Create worksheet from JSON data
       const worksheet = XLSX.utils.json_to_sheet(templateData);
-      
+
       // Set column widths for better readability
       worksheet['!cols'] = [
         { wch: 15 }, // sku
         { wch: 25 }, // name
         { wch: 25 }, // nameTh
-        { wch: 30 }, // description
-        { wch: 30 }, // descriptionTh
+        { wch: 35 }, // description
+        { wch: 35 }, // descriptionTh
         { wch: 10 }, // weight
         { wch: 15 }, // dimensions
-        { wch: 15 }, // color
+        { wch: 12 }, // color
         { wch: 12 }, // costPrice
         { wch: 12 }, // sellPrice
         { wch: 10 }, // stockQty
         { wch: 10 }, // minStock
         { wch: 10 }, // maxStock
-        { wch: 15 }, // barcode
+        { wch: 18 }, // barcode
         { wch: 20 }, // category
         { wch: 20 }, // brand
         { wch: 10 }, // isDigital
       ];
-      
+
       // Add worksheet to workbook
       XLSX.utils.book_append_sheet(workbook, worksheet, 'Products');
 
-      this.logger.log('Writing Excel file to buffer');
-      
-      // Write workbook to buffer
-      const buffer = XLSX.write(workbook, { 
-        type: 'buffer', 
-        bookType: 'xlsx',
-        compression: true,
-      });
+      // Add instructions sheet
+      const instructions = [
+        { Column: 'sku', Description: 'Product SKU (Required, must be unique)', Example: 'PROD-001' },
+        { Column: 'name', Description: 'Product name in English (Required)', Example: 'Sample Product' },
+        { Column: 'nameTh', Description: 'Product name in Thai (Optional)', Example: 'ตัวอย่างสินค้า' },
+        { Column: 'description', Description: 'Product description (Optional)', Example: 'Detailed description' },
+        { Column: 'descriptionTh', Description: 'Thai description (Optional)', Example: 'คำอธิบายภาษาไทย' },
+        { Column: 'weight', Description: 'Product weight in grams (Optional)', Example: '500' },
+        { Column: 'dimensions', Description: 'Dimensions LxWxH in cm (Optional)', Example: '10x10x5' },
+        { Column: 'color', Description: 'Product color (Optional)', Example: 'Red' },
+        { Column: 'costPrice', Description: 'Cost price (Required)', Example: '1000' },
+        { Column: 'sellPrice', Description: 'Selling price (Optional)', Example: '1500' },
+        { Column: 'stockQty', Description: 'Stock quantity (Optional, defaults to 0)', Example: '50' },
+        { Column: 'minStock', Description: 'Minimum stock level (Optional)', Example: '10' },
+        { Column: 'maxStock', Description: 'Maximum stock level (Optional)', Example: '200' },
+        { Column: 'barcode', Description: 'Product barcode (Optional, auto-generated if empty)', Example: '1234567890123' },
+        { Column: 'category', Description: `Category name (Required). Available: ${categories.map(c => c.name).join(', ')}`, Example: categoryExample },
+        { Column: 'brand', Description: `Brand name (Required). Available: ${brands.map(b => b.name).join(', ')}`, Example: brandExample },
+        { Column: 'isDigital', Description: 'Is this a digital product? (true/false)', Example: 'false' },
+      ];
 
-      // Ensure we have a proper Buffer
+      const instructionsSheet = XLSX.utils.json_to_sheet(instructions);
+      instructionsSheet['!cols'] = [
+        { wch: 15 },
+        { wch: 60 },
+        { wch: 25 },
+      ];
+      XLSX.utils.book_append_sheet(workbook, instructionsSheet, 'Instructions');
+
+      this.logger.log('Writing workbook to buffer');
+
+      // Write to buffer with error handling
+      let buffer: any;
+      try {
+        buffer = XLSX.write(workbook, {
+          type: 'buffer',
+          bookType: 'xlsx',
+        });
+      } catch (writeError) {
+        this.logger.error(`XLSX write error: ${writeError.message}`);
+        throw new Error(`Failed to write Excel file: ${writeError.message}`);
+      }
+
+      // Convert to proper Buffer
       let resultBuffer: Buffer;
-      if (Buffer.isBuffer(buffer)) {
+      if (!buffer) {
+        throw new Error('XLSX.write returned null or undefined');
+      } else if (Buffer.isBuffer(buffer)) {
         resultBuffer = buffer;
       } else if (buffer instanceof Uint8Array) {
         resultBuffer = Buffer.from(buffer);
+      } else if (ArrayBuffer.isView(buffer)) {
+        resultBuffer = Buffer.from(buffer.buffer, buffer.byteOffset, buffer.byteLength);
       } else {
-        resultBuffer = Buffer.from(buffer as any);
+        // Last resort: try to convert whatever we got
+        try {
+          resultBuffer = Buffer.from(buffer);
+        } catch (conversionError) {
+          this.logger.error(`Buffer conversion error: ${conversionError.message}`);
+          throw new Error('Failed to convert Excel data to buffer');
+        }
       }
 
       if (!resultBuffer || resultBuffer.length === 0) {
         throw new Error('Generated template buffer is empty');
       }
 
-      this.logger.log(`Template generated successfully, size: ${resultBuffer.length} bytes`);
+      this.logger.log(`✅ Template generated successfully! Size: ${resultBuffer.length} bytes (${(resultBuffer.length / 1024).toFixed(2)} KB)`);
       return resultBuffer;
     } catch (error) {
-      this.logger.error(`Error in generateTemplate: ${error.message}`, error.stack);
+      this.logger.error(`❌ Template generation failed: ${error.message}`, error.stack);
       throw new BadRequestException(`Failed to generate template: ${error.message}`);
     }
   }
