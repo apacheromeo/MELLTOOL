@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import SidebarLayout from '@/components/SidebarLayout'
+import { exportSalesReportPDF } from '@/lib/pdf-export'
 
 interface DailySales {
   date: string
@@ -45,6 +46,18 @@ export default function SalesReportsPage() {
 
   const maxRevenue = Math.max(...dailySales.map(d => d.revenue))
 
+  const handleExportPDF = async () => {
+    try {
+      await exportSalesReportPDF({
+        dailySales,
+        dateRange: dateRange === 'week' ? 'This Week' : dateRange === 'month' ? 'This Month' : 'This Year',
+      })
+    } catch (error) {
+      console.error('Failed to export PDF:', error)
+      alert('Failed to export PDF. Please try again.')
+    }
+  }
+
   return (
     <SidebarLayout>
       <div className="container mx-auto px-4 py-8">
@@ -56,13 +69,20 @@ export default function SalesReportsPage() {
             <p className="text-sm text-gray-500">ดูรายงานการขายรายวัน รายสัปดาห์ และรายเดือน</p>
           </div>
           <div className="flex gap-2">
-            <button className="btn-secondary flex items-center gap-2">
+            <button
+              onClick={handleExportPDF}
+              className="btn-secondary flex items-center gap-2"
+              disabled={loading || dailySales.length === 0}
+            >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
               </svg>
               Export PDF
             </button>
-            <button className="btn-primary flex items-center gap-2">
+            <button
+              onClick={() => window.print()}
+              className="btn-primary flex items-center gap-2"
+            >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
               </svg>
