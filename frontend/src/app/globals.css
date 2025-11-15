@@ -240,14 +240,81 @@
 }
 
 /* ============================================
+   SAFE AREA SUPPORT (for iOS notched devices)
+   ============================================ */
+@supports (padding: max(0px)) {
+  .safe-top {
+    top: max(1rem, env(safe-area-inset-top));
+  }
+
+  .safe-left {
+    left: max(1rem, env(safe-area-inset-left));
+  }
+
+  .safe-right {
+    right: max(1rem, env(safe-area-inset-right));
+  }
+
+  .safe-bottom {
+    bottom: max(1rem, env(safe-area-inset-bottom));
+  }
+}
+
+/* ============================================
    RESPONSIVE UTILITIES
    ============================================ */
-@media (max-width: 768px) {
+/* Mobile - Better card styling and padding */
+@media (max-width: 640px) {
   .card {
-    @apply rounded-lg;
+    @apply rounded-lg p-4;
   }
-  
+
   .stat-card {
     @apply p-4;
+  }
+
+  /* Better touch targets on mobile */
+  .btn-primary,
+  .btn-secondary,
+  .btn-success,
+  .btn-danger {
+    @apply px-4 py-3 text-base;
+  }
+}
+
+/* Tablet */
+@media (min-width: 641px) and (max-width: 1023px) {
+  .card {
+    @apply rounded-xl p-5;
+  }
+
+  .stat-card {
+    @apply p-5;
+  }
+}
+
+/* Desktop - Keep original styling */
+@media (min-width: 1024px) {
+  .card {
+    @apply rounded-2xl p-6;
+  }
+
+  .stat-card {
+    @apply p-6;
+  }
+}
+
+/* Responsive Typography */
+@media (max-width: 640px) {
+  h1 {
+    @apply text-2xl;
+  }
+
+  h2 {
+    @apply text-xl;
+  }
+
+  h3 {
+    @apply text-lg;
   }
 }

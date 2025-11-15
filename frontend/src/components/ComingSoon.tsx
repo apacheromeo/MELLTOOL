@@ -30,8 +30,8 @@ export default function ComingSoon({
   return (
     <div className="flex min-h-screen bg-gray-50">
       <Sidebar />
-      
-      <main className="flex-1 ml-64 p-8">
+
+      <main className="flex-1 ml-0 lg:ml-64 p-4 md:p-6 lg:p-8">
         <div className="max-w-4xl mx-auto">
           {/* Coming Soon Card */}
           <div className="card p-12 text-center">
