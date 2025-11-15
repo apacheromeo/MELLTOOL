@@ -1,4 +1,4 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException, Optional } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bull';
 import { Queue } from 'bull';
 import { PrismaService } from '@/common/prisma/prisma.service';
@@ -10,8 +10,12 @@ export class PrintService {
 
   constructor(
     private readonly prisma: PrismaService,
-    @InjectQueue('print') private readonly printQueue: Queue,
-  ) {}
+    @Optional() @InjectQueue('print') private readonly printQueue?: Queue,
+  ) {
+    if (!this.printQueue) {
+      this.logger.warn('⚠️  Print queue not available - print jobs will be created but not processed');
+    }
+  }
 
   async createBarcodeJob(createPrintJobDto: CreatePrintJobDto, userId: string) {
     const { productIds, copiesPerProduct = 1 } = createPrintJobDto;
@@ -61,20 +65,24 @@ export class PrintService {
       },
     });
 
-    // Add to queue for processing
-    await this.printQueue.add('generate-barcode-pdf', {
-      printJobId: printJob.id,
-      products: products.map(p => ({
-        id: p.id,
-        sku: p.sku,
-        name: p.name,
-        nameTh: p.nameTh,
-        barcode: p.barcode,
-        brand: p.brand.name,
-        category: p.category.name,
-        copies: copiesPerProduct,
-      })),
-    });
+    // Add to queue for processing (if available)
+    if (this.printQueue) {
+      await this.printQueue.add('generate-barcode-pdf', {
+        printJobId: printJob.id,
+        products: products.map(p => ({
+          id: p.id,
+          sku: p.sku,
+          name: p.name,
+          nameTh: p.nameTh,
+          barcode: p.barcode,
+          brand: p.brand.name,
+          category: p.category.name,
+          copies: copiesPerProduct,
+        })),
+      });
+    } else {
+      this.logger.warn(`Print job ${printJob.id} created but not queued (Redis unavailable)`);
+    }
 
     this.logger.log(`Print job created: ${printJob.id} for ${products.length} products`);
 
@@ -167,18 +175,22 @@ export class PrintService {
       data: { status: 'PENDING' },
     });
 
-    // Re-add to queue
-    await this.printQueue.add('generate-barcode-pdf', {
-      printJobId: printJob.id,
-      products: printJob.products.map(p => ({
-        id: p.product.id,
-        sku: p.product.sku,
-        name: p.product.name,
-        barcode: p.product.barcode,
-        brand: p.product.brand.name,
-        copies: p.qty,
-      })),
-    });
+    // Re-add to queue (if available)
+    if (this.printQueue) {
+      await this.printQueue.add('generate-barcode-pdf', {
+        printJobId: printJob.id,
+        products: printJob.products.map(p => ({
+          id: p.product.id,
+          sku: p.product.sku,
+          name: p.product.name,
+          barcode: p.product.barcode,
+          brand: p.product.brand.name,
+          copies: p.qty,
+        })),
+      });
+    } else {
+      throw new Error('Cannot retry print job: Queue service unavailable (Redis not configured)');
+    }
 
     this.logger.log(`Print job retried: ${id}`);
 

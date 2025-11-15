@@ -15,7 +15,9 @@ export default function LoginPage() {
   // Redirect if already logged in
   useEffect(() => {
     if (isAuthenticated) {
-      router.push('/pos')
+      // Login function in AuthContext already handles redirect based on role
+      // This is just a safety check
+      router.push('/dashboard')
     }
   }, [isAuthenticated, router])
 
@@ -26,7 +28,9 @@ export default function LoginPage() {
 
     try {
       await login(email, password)
-      router.push('/pos')
+      // Note: login() function already handles role-based redirection:
+      // - STAFF → /pos
+      // - OWNER/MOD → /dashboard
     } catch (err: any) {
       setError(err.message || 'Login failed. Please check your credentials.')
     } finally {
@@ -113,7 +117,7 @@ export default function LoginPage() {
           {/* Additional Info */}
           <div className="mt-8 pt-6 border-t border-gray-200">
             <p className="text-center text-sm text-gray-600">
-              Staff Login Only
+              Employee Login
             </p>
             <p className="text-center text-xs text-gray-500 mt-2">
               Contact your administrator if you need access

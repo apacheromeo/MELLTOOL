@@ -7,9 +7,9 @@ primary_region = "sin"  # Singapore - change to your preferred region
 [build]
   dockerfile = "backend/Dockerfile"
 
-# Temporarily disabled to fix deployment timeout
-# [deploy]
-#   release_command = "npx prisma migrate deploy"
+# Prisma migrations run on deploy using direct database connection
+[deploy]
+  release_command = "sh -c 'DATABASE_URL=$DIRECT_DATABASE_URL npx prisma migrate deploy'"
 
 [env]
   PORT = "3001"
@@ -26,7 +26,7 @@ primary_region = "sin"  # Singapore - change to your preferred region
   [[http_service.checks]]
     interval = "30s"
     timeout = "10s"
-    grace_period = "10s"
+    grace_period = "60s"  # Increased to 60s to allow app startup time
     method = "GET"
     path = "/health"
 
@@ -57,7 +57,7 @@ primary_region = "sin"  # Singapore - change to your preferred region
   [[services.http_checks]]
     interval = "30s"
     timeout = "10s"
-    grace_period = "10s"
+    grace_period = "60s"  # Increased to 60s to allow app startup time
     method = "get"
     path = "/health"
     protocol = "http"

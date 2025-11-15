@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Optional } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bull';
 import { Queue } from 'bull';
 import { PrismaService } from '@/common/prisma/prisma.service';
@@ -13,8 +13,12 @@ export class ShopeeSyncService {
     private readonly prisma: PrismaService,
     private readonly shopeeApi: ShopeeApiService,
     private readonly shopeeAuth: ShopeeAuthService,
-    @InjectQueue('shopee-sync') private readonly syncQueue: Queue,
-  ) {}
+    @Optional() @InjectQueue('shopee-sync') private readonly syncQueue?: Queue,
+  ) {
+    if (!this.syncQueue) {
+      this.logger.warn('⚠️  Shopee sync queue not available - sync operations will run inline');
+    }
+  }
 
   async syncCatalog(shopId: string) {
     try {
@@ -28,11 +32,15 @@ export class ShopeeSyncService {
         throw new Error('Shop not found');
       }
 
-      // Add job to queue
-      await this.syncQueue.add('sync-catalog', {
-        shopId,
-        shopDbId: shop.id,
-      });
+      // Add job to queue (if available)
+      if (this.syncQueue) {
+        await this.syncQueue.add('sync-catalog', {
+          shopId,
+          shopDbId: shop.id,
+        });
+      } else {
+        this.logger.warn(`Shopee catalog sync requested but queue unavailable (Redis not configured)`);
+      }
 
       await this.prisma.shopeeSyncLog.create({
         data: {
@@ -65,11 +73,15 @@ export class ShopeeSyncService {
         throw new Error('Shop not found');
       }
 
-      // Add job to queue
-      await this.syncQueue.add('sync-stock', {
-        shopId,
-        shopDbId: shop.id,
-      });
+      // Add job to queue (if available)
+      if (this.syncQueue) {
+        await this.syncQueue.add('sync-stock', {
+          shopId,
+          shopDbId: shop.id,
+        });
+      } else {
+        this.logger.warn(`Shopee stock sync requested but queue unavailable (Redis not configured)`);
+      }
 
       await this.prisma.shopeeSyncLog.create({
         data: {
@@ -122,10 +134,15 @@ export class ShopeeSyncService {
       throw new Error('Shop not found');
     }
 
-    const [pendingJobs, activeJobs] = await Promise.all([
-      this.syncQueue.getWaiting(),
-      this.syncQueue.getActive(),
-    ]);
+    let pendingJobs = [];
+    let activeJobs = [];
+
+    if (this.syncQueue) {
+      [pendingJobs, activeJobs] = await Promise.all([
+        this.syncQueue.getWaiting(),
+        this.syncQueue.getActive(),
+      ]);
+    }
 
     const shopJobs = [...pendingJobs, ...activeJobs].filter(
       (job) => job.data.shopId === shopId

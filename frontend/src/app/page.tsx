@@ -2,17 +2,56 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
+import { useAuth } from '@/contexts/AuthContext'
 import Sidebar from '@/components/Sidebar'
 
 export default function Home() {
   const [apiStatus, setApiStatus] = useState<'checking' | 'online' | 'offline'>('checking')
   const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'
+  const { isAuthenticated, loading, user } = useAuth()
+  const router = useRouter()
+
+  // Redirect to login if not authenticated
+  useEffect(() => {
+    if (!loading && !isAuthenticated) {
+      router.push('/login')
+    }
+  }, [loading, isAuthenticated, router])
+
+  // Redirect based on role after authentication
+  useEffect(() => {
+    if (!loading && isAuthenticated && user) {
+      if (user.role === 'STAFF') {
+        router.push('/pos')
+      } else {
+        router.push('/dashboard')
+      }
+    }
+  }, [loading, isAuthenticated, user, router])
 
   useEffect(() => {
     fetch(`${API_URL}/health`)
       .then(() => setApiStatus('online'))
       .catch(() => setApiStatus('offline'))
-  }, [])
+  }, [API_URL])
+
+  // Show loading state while checking authentication
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading...</p>
+        </div>
+      </div>
+    )
+  }
+
+  // If not authenticated, show nothing (will redirect to login)
+  if (!isAuthenticated) {
+    return null
+  }
 
   const features = [
     {

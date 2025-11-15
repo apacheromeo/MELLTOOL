@@ -55,7 +55,9 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
       this.logger.log('✅ Database connected successfully');
     } catch (error) {
       this.logger.error('❌ Failed to connect to database:', error);
-      throw error;
+      // Don't throw - allow app to start for health checks
+      // The app will fail when trying to use Prisma, but health endpoint will work
+      this.logger.warn('⚠️  App starting without database connection - some features will fail');
     }
   }
 
