@@ -9,11 +9,33 @@ export class RedisService implements OnModuleDestroy {
 
   constructor(private configService: ConfigService) {
     const redisUrl = this.configService.get('app.redis.url');
+    const useTls = this.configService.get('app.redis.tls', false);
 
     if (redisUrl) {
-      this.client = new Redis(redisUrl);
+      const options: any = {
+        retryStrategy: (times) => {
+          // Stop retrying after 3 attempts
+          if (times > 3) {
+            this.logger.warn('⚠️ Redis unavailable - continuing without cache');
+            return null;
+          }
+          const delay = Math.min(times * 50, 2000);
+          return delay;
+        },
+        maxRetriesPerRequest: 3,
+        lazyConnect: true, // Don't connect immediately
+      };
+
+      // Add TLS configuration if enabled
+      if (useTls) {
+        options.tls = {
+          rejectUnauthorized: false, // Required for some cloud providers
+        };
+      }
+
+      this.client = new Redis(redisUrl, options);
     } else {
-      this.client = new Redis({
+      const options: any = {
         host: this.configService.get('app.redis.host', 'localhost'),
         port: this.configService.get('app.redis.port', 6379),
         password: this.configService.get('app.redis.password'),
@@ -28,16 +50,35 @@ export class RedisService implements OnModuleDestroy {
         },
         maxRetriesPerRequest: 3,
         lazyConnect: true, // Don't connect immediately
-      });
+      };
+
+      // Add TLS configuration if enabled
+      if (useTls) {
+        options.tls = {
+          rejectUnauthorized: false, // Required for some cloud providers
+        };
+      }
+
+      this.client = new Redis(options);
     }
+
+    // Log connection attempt details (without sensitive info)
+    const connectionInfo = redisUrl
+      ? `URL connection (TLS: ${useTls})`
+      : `${this.configService.get('app.redis.host')}:${this.configService.get('app.redis.port')} (TLS: ${useTls})`;
+    this.logger.log(`🔄 Attempting Redis connection to ${connectionInfo}`);
 
     // Try to connect, but don't fail if Redis is unavailable
     this.client.connect().catch((error) => {
-      this.logger.warn('⚠️ Redis connection failed - running without cache:', error.message);
+      this.logger.warn(`⚠️ Redis connection failed (${connectionInfo}) - running without cache:`, error.message);
     });
 
     this.client.on('connect', () => {
-      this.logger.log('✅ Redis connected successfully');
+      this.logger.log(`✅ Redis connected successfully to ${connectionInfo}`);
+    });
+
+    this.client.on('ready', () => {
+      this.logger.log('✅ Redis client is ready to accept commands');
     });
 
     this.client.on('error', (error) => {
