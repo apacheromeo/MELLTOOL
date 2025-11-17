@@ -26,4 +26,13 @@ export class CreateCategoryDto {
   @IsOptional()
   @IsString()
   description?: string;
+
+  @ApiProperty({
+    description: 'Category color for UI visualization',
+    example: '#3B82F6',
+    required: false,
+  })
+  @IsOptional()
+  @IsString()
+  color?: string;
 }
