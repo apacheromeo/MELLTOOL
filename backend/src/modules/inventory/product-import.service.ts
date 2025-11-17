@@ -233,8 +233,10 @@ export class ProductImportService {
                 stockQty: productData.stockQty,
                 minStock: productData.minStock,
                 maxStock: productData.maxStock,
+                barcode: productData.barcode, // Update barcode if provided
                 categoryId: productData.categoryId,
                 brandId: productData.brandId,
+                isDigital: productData.isDigital,
               },
               include: {
                 brand: { select: { name: true } },
@@ -423,7 +425,7 @@ export class ProductImportService {
           stockQty: 50,
           minStock: 10,
           maxStock: 200,
-          barcode: '',
+          barcode: '1234567890123',
           category: categoryExample,
           brand: brandExample,
           isDigital: 'false',
@@ -442,7 +444,7 @@ export class ProductImportService {
           stockQty: 100,
           minStock: 20,
           maxStock: 500,
-          barcode: '',
+          barcode: '9876543210987',
           category: categoryExample,
           brand: brandExample,
           isDigital: 'false',
