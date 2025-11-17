@@ -26,4 +26,22 @@ export class CreateCategoryDto {
   @IsOptional()
   @IsString()
   description?: string;
+
+  @ApiProperty({
+    description: 'Hex color code for UI display',
+    example: '#3B82F6',
+    required: false,
+  })
+  @IsOptional()
+  @IsString()
+  color?: string;
+
+  @ApiProperty({
+    description: 'Emoji icon for UI display',
+    example: '🔧',
+    required: false,
+  })
+  @IsOptional()
+  @IsString()
+  icon?: string;
 }

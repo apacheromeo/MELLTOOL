@@ -47,6 +47,8 @@ model Category {
   name        String
   nameTh      String?  // Thai name
   description String?
+  color       String?  @default("#3B82F6") // Hex color for UI
+  icon        String?  @default("📦") // Emoji icon for UI
   isActive    Boolean  @default(true)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt

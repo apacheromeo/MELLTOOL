@@ -10,7 +10,7 @@ export class CategoryService {
   constructor(private readonly prisma: PrismaService) {}
 
   async create(createCategoryDto: CreateCategoryDto) {
-    const { name, nameTh, description } = createCategoryDto;
+    const { name, nameTh, description, color, icon } = createCategoryDto;
 
     try {
       // Check if category with same name already exists
@@ -32,6 +32,8 @@ export class CategoryService {
           name,
           nameTh,
           description,
+          color,
+          icon,
         },
       });
 

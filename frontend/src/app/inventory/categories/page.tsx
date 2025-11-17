@@ -3,16 +3,24 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import SidebarLayout from '@/components/SidebarLayout'
+import { api } from '@/lib/api'
 
 interface Category {
   id: string
   name: string
   nameTh: string
   description?: string
-  productCount: number
-  color: string
-  icon: string
+  _count?: {
+    products: number
+  }
+  color?: string
+  icon?: string
   createdAt: string
+}
+
+// Helper to get product count
+const getProductCount = (category: Category): number => {
+  return category._count?.products || 0
 }
 
 export default function CategoriesPage() {
@@ -29,93 +37,42 @@ export default function CategoriesPage() {
     icon: '📦'
   })
 
-  // Mock data for demonstration
   useEffect(() => {
     loadCategories()
   }, [])
 
-  const loadCategories = () => {
+  const loadCategories = async () => {
     setLoading(true)
-    // Simulate API call
-    setTimeout(() => {
-      setCategories([
-        {
-          id: '1',
-          name: 'Vacuum Parts',
-          nameTh: 'อะไหล่เครื่องดูดฝุ่น',
-          description: 'Replacement parts for vacuum cleaners',
-          productCount: 145,
-          color: '#3B82F6',
-          icon: '🔧',
-          createdAt: '2024-01-15'
-        },
-        {
-          id: '2',
-          name: 'Filters',
-          nameTh: 'ฟิลเตอร์',
-          description: 'HEPA and standard filters',
-          productCount: 89,
-          color: '#10B981',
-          icon: '🌪️',
-          createdAt: '2024-01-20'
-        },
-        {
-          id: '3',
-          name: 'Batteries',
-          nameTh: 'แบตเตอรี่',
-          description: 'Rechargeable batteries for cordless vacuums',
-          productCount: 56,
-          color: '#F59E0B',
-          icon: '🔋',
-          createdAt: '2024-02-01'
-        },
-        {
-          id: '4',
-          name: 'Brushes',
-          nameTh: 'แปรง',
-          description: 'Rotating brushes and attachments',
-          productCount: 72,
-          color: '#8B5CF6',
-          icon: '🧹',
-          createdAt: '2024-02-10'
-        },
-        {
-          id: '5',
-          name: 'Motors',
-          nameTh: 'มอเตอร์',
-          description: 'Replacement motors and fans',
-          productCount: 34,
-          color: '#EF4444',
-          icon: '⚙️',
-          createdAt: '2024-02-15'
-        }
-      ])
+    try {
+      const data = await api.getCategories()
+      setCategories(data)
+    } catch (error) {
+      console.error('Failed to load categories:', error)
+      alert('Failed to load categories. Please try again.')
+    } finally {
       setLoading(false)
-    }, 500)
+    }
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    
-    if (editingCategory) {
-      // Update existing category
-      setCategories(categories.map(cat => 
-        cat.id === editingCategory.id 
-          ? { ...cat, ...formData, productCount: cat.productCount }
-          : cat
-      ))
-    } else {
-      // Create new category
-      const newCategory: Category = {
-        id: Date.now().toString(),
-        ...formData,
-        productCount: 0,
-        createdAt: new Date().toISOString().split('T')[0]
+
+    try {
+      if (editingCategory) {
+        // Update existing category
+        await api.updateCategory(editingCategory.id, formData)
+      } else {
+        // Create new category
+        await api.createCategory(formData)
       }
-      setCategories([newCategory, ...categories])
+
+      // Reload categories from database
+      await loadCategories()
+      closeModal()
+    } catch (error: any) {
+      console.error('Failed to save category:', error)
+      alert(error.message || 'Failed to save category. Please try again.')
     }
-    
-    closeModal()
   }
 
   const handleEdit = (category: Category) => {
@@ -124,15 +81,21 @@ export default function CategoriesPage() {
       name: category.name,
       nameTh: category.nameTh,
       description: category.description || '',
-      color: category.color,
-      icon: category.icon
+      color: category.color || '#3B82F6',
+      icon: category.icon || '📦'
     })
     setShowModal(true)
   }
 
-  const handleDelete = (id: string) => {
+  const handleDelete = async (id: string) => {
     if (confirm('Are you sure you want to delete this category?')) {
-      setCategories(categories.filter(cat => cat.id !== id))
+      try {
+        await api.deleteCategory(id)
+        await loadCategories()
+      } catch (error: any) {
+        console.error('Failed to delete category:', error)
+        alert(error.message || 'Failed to delete category. Please try again.')
+      }
     }
   }
 
@@ -192,7 +155,7 @@ export default function CategoriesPage() {
               <div>
                 <p className="text-sm text-gray-600 mb-1">Total Products</p>
                 <p className="text-3xl font-bold text-gray-900">
-                  {categories.reduce((sum, cat) => sum + cat.productCount, 0)}
+                  {categories.reduce((sum, cat) => sum + getProductCount(cat), 0)}
                 </p>
               </div>
               <div className="w-12 h-12 rounded-lg bg-green-100 flex items-center justify-center">
@@ -208,7 +171,7 @@ export default function CategoriesPage() {
               <div>
                 <p className="text-sm text-gray-600 mb-1">Avg per Category</p>
                 <p className="text-3xl font-bold text-gray-900">
-                  {categories.length > 0 ? Math.round(categories.reduce((sum, cat) => sum + cat.productCount, 0) / categories.length) : 0}
+                  {categories.length > 0 ? Math.round(categories.reduce((sum, cat) => sum + getProductCount(cat), 0) / categories.length) : 0}
                 </p>
               </div>
               <div className="w-12 h-12 rounded-lg bg-purple-100 flex items-center justify-center">
@@ -224,7 +187,7 @@ export default function CategoriesPage() {
               <div>
                 <p className="text-sm text-gray-600 mb-1">Most Popular</p>
                 <p className="text-xl font-bold text-gray-900">
-                  {categories.length > 0 ? categories.reduce((max, cat) => cat.productCount > max.productCount ? cat : max, categories[0]).name : 'N/A'}
+                  {categories.length > 0 ? categories.reduce((max, cat) => getProductCount(cat) > getProductCount(max) ? cat : max, categories[0]).name : 'N/A'}
                 </p>
               </div>
               <div className="w-12 h-12 rounded-lg bg-yellow-100 flex items-center justify-center">
@@ -266,9 +229,9 @@ export default function CategoriesPage() {
                 <div className="flex items-start justify-between mb-4">
                   <div
                     className="w-14 h-14 rounded-lg flex items-center justify-center text-2xl"
-                    style={{ backgroundColor: `${category.color}20` }}
+                    style={{ backgroundColor: `${category.color || '#3B82F6'}20` }}
                   >
-                    {category.icon}
+                    {category.icon || '📦'}
                   </div>
                   <div className="flex gap-2">
                     <button
@@ -303,9 +266,9 @@ export default function CategoriesPage() {
                     <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
                     </svg>
-                    <span className="text-sm font-medium text-gray-700">{category.productCount} products</span>
+                    <span className="text-sm font-medium text-gray-700">{getProductCount(category)} products</span>
                   </div>
-                  <span className="text-xs text-gray-500">{category.createdAt}</span>
+                  <span className="text-xs text-gray-500">{new Date(category.createdAt).toLocaleDateString()}</span>
                 </div>
               </div>
             ))}
