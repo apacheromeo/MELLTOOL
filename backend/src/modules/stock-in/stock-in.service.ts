@@ -66,19 +66,23 @@ export class StockInService {
     }
   }
 
-  async findAll(page: number = 1, limit: number = 20, status?: string) {
+  async findAll(page: number = 1, limit: number = 20, status?: string, approvalStatus?: string) {
     const skip = (page - 1) * limit;
 
     const where: any = {};
     if (status) {
       where.status = status;
     }
+    if (approvalStatus) {
+      where.approvalStatus = approvalStatus;
+    }
 
     const [stockIns, total] = await Promise.all([
       this.prisma.stockIn.findMany({
         where,
         include: {
-          user: { select: { name: true, email: true } },
+          user: { select: { name: true, email: true, role: true } },
+          approver: { select: { name: true, email: true } },
           items: {
             include: {
               product: {
@@ -110,11 +114,42 @@ export class StockInService {
     };
   }
 
+  async getPendingApprovals() {
+    const pendingStockIns = await this.prisma.stockIn.findMany({
+      where: {
+        approvalStatus: 'PENDING_APPROVAL',
+        status: { not: 'CANCELLED' },
+      },
+      include: {
+        user: { select: { name: true, email: true, role: true } },
+        items: {
+          include: {
+            product: {
+              select: {
+                id: true,
+                sku: true,
+                name: true,
+                brand: { select: { name: true } },
+              },
+            },
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    return {
+      pendingApprovals: pendingStockIns,
+      count: pendingStockIns.length,
+    };
+  }
+
   async findOne(id: string) {
     const stockIn = await this.prisma.stockIn.findUnique({
       where: { id },
       include: {
-        user: { select: { name: true, email: true } },
+        user: { select: { name: true, email: true, role: true } },
+        approver: { select: { name: true, email: true } },
         items: {
           include: {
             product: {
@@ -200,6 +235,11 @@ export class StockInService {
       throw new BadRequestException('Cannot receive cancelled stock-in order');
     }
 
+    // Check approval status
+    if (stockIn.approvalStatus !== 'APPROVED') {
+      throw new BadRequestException('Cannot receive stock-in order that is not approved');
+    }
+
     try {
       // Update product stock and cost price for each item
       for (const item of stockIn.items) {
@@ -277,6 +317,110 @@ export class StockInService {
 
     return {
       message: 'Stock-in order cancelled successfully',
+      stockIn: updatedStockIn,
+    };
+  }
+
+  async approve(id: string, approverId: string) {
+    const stockIn = await this.prisma.stockIn.findUnique({
+      where: { id },
+      include: {
+        user: { select: { name: true, email: true } },
+        items: { include: { product: { select: { sku: true, name: true } } } },
+      },
+    });
+
+    if (!stockIn) {
+      throw new NotFoundException('Stock-in order not found');
+    }
+
+    if (stockIn.status === 'CANCELLED') {
+      throw new BadRequestException('Cannot approve cancelled stock-in order');
+    }
+
+    if (stockIn.status === 'RECEIVED') {
+      throw new BadRequestException('Cannot approve already received stock-in order');
+    }
+
+    if (stockIn.approvalStatus === 'APPROVED') {
+      throw new BadRequestException('Stock-in order already approved');
+    }
+
+    if (stockIn.approvalStatus === 'REJECTED') {
+      throw new BadRequestException('Cannot approve rejected stock-in order');
+    }
+
+    const updatedStockIn = await this.prisma.stockIn.update({
+      where: { id },
+      data: {
+        approvalStatus: 'APPROVED',
+        approvedBy: approverId,
+        approvedAt: new Date(),
+        rejectionReason: null,
+      },
+      include: {
+        user: { select: { name: true, email: true } },
+        approver: { select: { name: true, email: true } },
+        items: { include: { product: { select: { sku: true, name: true } } } },
+      },
+    });
+
+    this.logger.log(`Stock-in approved: ${updatedStockIn.reference} by user ${approverId}`);
+
+    return {
+      message: 'Stock-in order approved successfully',
+      stockIn: updatedStockIn,
+    };
+  }
+
+  async reject(id: string, approverId: string, rejectionReason?: string) {
+    const stockIn = await this.prisma.stockIn.findUnique({
+      where: { id },
+      include: {
+        user: { select: { name: true, email: true } },
+        items: { include: { product: { select: { sku: true, name: true } } } },
+      },
+    });
+
+    if (!stockIn) {
+      throw new NotFoundException('Stock-in order not found');
+    }
+
+    if (stockIn.status === 'CANCELLED') {
+      throw new BadRequestException('Cannot reject cancelled stock-in order');
+    }
+
+    if (stockIn.status === 'RECEIVED') {
+      throw new BadRequestException('Cannot reject already received stock-in order');
+    }
+
+    if (stockIn.approvalStatus === 'APPROVED') {
+      throw new BadRequestException('Cannot reject approved stock-in order');
+    }
+
+    if (stockIn.approvalStatus === 'REJECTED') {
+      throw new BadRequestException('Stock-in order already rejected');
+    }
+
+    const updatedStockIn = await this.prisma.stockIn.update({
+      where: { id },
+      data: {
+        approvalStatus: 'REJECTED',
+        approvedBy: approverId,
+        approvedAt: new Date(),
+        rejectionReason,
+      },
+      include: {
+        user: { select: { name: true, email: true } },
+        approver: { select: { name: true, email: true } },
+        items: { include: { product: { select: { sku: true, name: true } } } },
+      },
+    });
+
+    this.logger.log(`Stock-in rejected: ${updatedStockIn.reference} by user ${approverId} - Reason: ${rejectionReason || 'No reason provided'}`);
+
+    return {
+      message: 'Stock-in order rejected successfully',
       stockIn: updatedStockIn,
     };
   }

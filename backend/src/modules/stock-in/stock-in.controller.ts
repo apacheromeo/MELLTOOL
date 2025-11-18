@@ -44,14 +44,25 @@ export class StockInController {
   @ApiQuery({ name: 'page', required: false, type: Number })
   @ApiQuery({ name: 'limit', required: false, type: Number })
   @ApiQuery({ name: 'status', required: false, type: String })
+  @ApiQuery({ name: 'approvalStatus', required: false, type: String })
   async findAll(
     @Query('page') page?: string,
     @Query('limit') limit?: string,
     @Query('status') status?: string,
+    @Query('approvalStatus') approvalStatus?: string,
   ) {
     const pageNum = page ? parseInt(page, 10) : 1;
     const limitNum = limit ? parseInt(limit, 10) : 20;
-    return this.stockInService.findAll(pageNum, limitNum, status);
+    return this.stockInService.findAll(pageNum, limitNum, status, approvalStatus);
+  }
+
+  @Get('approvals/pending')
+  @Roles(UserRole.OWNER)
+  @ApiOperation({ summary: 'Get pending approval stock-ins (Owner only)' })
+  @ApiResponse({ status: 200, description: 'Pending approvals retrieved successfully' })
+  async getPendingApprovals(@Request() req) {
+    this.logger.log(`Getting pending approvals by user: ${req.user.email}`);
+    return this.stockInService.getPendingApprovals();
   }
 
   @Get(':id')
@@ -91,6 +102,30 @@ export class StockInController {
   async cancel(@Param('id') id: string, @Request() req) {
     this.logger.log(`Cancelling stock-in ${id} by user: ${req.user.email}`);
     return this.stockInService.cancel(id);
+  }
+
+  @Post(':id/approve')
+  @Roles(UserRole.OWNER)
+  @ApiOperation({ summary: 'Approve stock-in order (Owner only)' })
+  @ApiResponse({ status: 200, description: 'Stock-in approved successfully' })
+  @ApiResponse({ status: 400, description: 'Cannot approve stock-in' })
+  async approve(@Param('id') id: string, @Request() req) {
+    this.logger.log(`Approving stock-in ${id} by user: ${req.user.email}`);
+    return this.stockInService.approve(id, req.user.id);
+  }
+
+  @Post(':id/reject')
+  @Roles(UserRole.OWNER)
+  @ApiOperation({ summary: 'Reject stock-in order (Owner only)' })
+  @ApiResponse({ status: 200, description: 'Stock-in rejected successfully' })
+  @ApiResponse({ status: 400, description: 'Cannot reject stock-in' })
+  async reject(
+    @Param('id') id: string,
+    @Body('rejectionReason') rejectionReason: string,
+    @Request() req,
+  ) {
+    this.logger.log(`Rejecting stock-in ${id} by user: ${req.user.email} - Reason: ${rejectionReason}`);
+    return this.stockInService.reject(id, req.user.id, rejectionReason);
   }
 
   @Delete(':id')

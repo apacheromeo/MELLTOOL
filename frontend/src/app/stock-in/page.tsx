@@ -15,9 +15,13 @@ interface StockInItem {
 
 export default function StockInPage() {
   const [stockIns, setStockIns] = useState<any[]>([])
+  const [pendingApprovals, setPendingApprovals] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [showModal, setShowModal] = useState(false)
+  const [showRejectModal, setShowRejectModal] = useState(false)
+  const [selectedStockIn, setSelectedStockIn] = useState<any>(null)
+  const [rejectionReason, setRejectionReason] = useState('')
   const [products, setProducts] = useState<any[]>([])
   const [items, setItems] = useState<StockInItem[]>([])
   const [formData, setFormData] = useState({
@@ -27,11 +31,14 @@ export default function StockInPage() {
   })
   const [printLabels, setPrintLabels] = useState<any[]>([])
   const [showPrintModal, setShowPrintModal] = useState(false)
+  const [userRole, setUserRole] = useState<string | null>(null)
   const router = useRouter()
 
   useEffect(() => {
     loadStockIns()
     loadProducts()
+    loadUserProfile()
+    loadPendingApprovals()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -74,6 +81,53 @@ export default function StockInPage() {
       setProducts(data.products || [])
     } catch (err) {
       console.error('Failed to load products:', err)
+    }
+  }
+
+  const loadUserProfile = async () => {
+    try {
+      const profile = await api.getProfile()
+      setUserRole(profile.role)
+    } catch (err) {
+      console.error('Failed to load user profile:', err)
+    }
+  }
+
+  const loadPendingApprovals = async () => {
+    try {
+      const data = await api.getPendingApprovals()
+      setPendingApprovals(data.pendingApprovals || [])
+    } catch (err) {
+      console.error('Failed to load pending approvals:', err)
+    }
+  }
+
+  const handleApprove = async (id: string) => {
+    if (!confirm('Approve this stock-in order?')) return
+
+    try {
+      await api.approveStockIn(id)
+      alert('✅ Stock-in approved successfully!')
+      loadStockIns()
+      loadPendingApprovals()
+    } catch (err: any) {
+      alert('Failed to approve stock-in: ' + err.message)
+    }
+  }
+
+  const handleReject = async () => {
+    if (!selectedStockIn) return
+
+    try {
+      await api.rejectStockIn(selectedStockIn.id, rejectionReason || undefined)
+      alert('❌ Stock-in rejected')
+      setShowRejectModal(false)
+      setSelectedStockIn(null)
+      setRejectionReason('')
+      loadStockIns()
+      loadPendingApprovals()
+    } catch (err: any) {
+      alert('Failed to reject stock-in: ' + err.message)
     }
   }
 
@@ -242,6 +296,72 @@ export default function StockInPage() {
           </div>
         </div>
 
+        {/* Pending Approvals Section (OWNER Only) */}
+        {userRole === 'OWNER' && pendingApprovals.length > 0 && (
+          <div className="mb-8">
+            <div className="card p-6 border-l-4 border-orange-500 bg-orange-50">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-10 h-10 rounded-full bg-orange-100 flex items-center justify-center">
+                  <svg className="w-6 h-6 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-lg font-bold text-orange-900">Pending Approvals</h3>
+                  <p className="text-sm text-orange-700">{pendingApprovals.length} stock-in order{pendingApprovals.length > 1 ? 's' : ''} waiting for your approval</p>
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                {pendingApprovals.map((stockIn) => (
+                  <div key={stockIn.id} className="card p-4 bg-white">
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-2">
+                          <h4 className="font-bold text-gray-900">{stockIn.reference}</h4>
+                          <span className="badge badge-yellow">Pending Approval</span>
+                        </div>
+                        <p className="text-sm text-gray-600 mb-1">
+                          Created by <span className="font-medium text-gray-900">{stockIn.user?.name}</span> ({stockIn.user?.role})
+                        </p>
+                        {stockIn.supplier && (
+                          <p className="text-sm text-gray-600">Supplier: {stockIn.supplier}</p>
+                        )}
+                        <p className="text-sm font-bold text-gray-900 mt-2">
+                          Total: ฿{stockIn.totalCost?.toLocaleString()} ({stockIn.items?.length || 0} items)
+                        </p>
+                      </div>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => handleApprove(stockIn.id)}
+                          className="btn-success flex items-center gap-2"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                          </svg>
+                          Approve
+                        </button>
+                        <button
+                          onClick={() => {
+                            setSelectedStockIn(stockIn)
+                            setShowRejectModal(true)
+                          }}
+                          className="btn-danger flex items-center gap-2"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                          Reject
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Error State */}
         {error && (
           <div className={`card p-6 border-l-4 mb-8 ${error.includes('offline') ? 'border-yellow-500 bg-yellow-50' : 'border-red-500 bg-red-50'}`}>
@@ -286,6 +406,12 @@ export default function StockInPage() {
                 key={stockIn.id}
                 stockIn={stockIn}
                 onReceive={handleReceive}
+                onApprove={handleApprove}
+                onReject={(stockIn) => {
+                  setSelectedStockIn(stockIn)
+                  setShowRejectModal(true)
+                }}
+                userRole={userRole}
               />
             ))}
           </div>
@@ -567,12 +693,88 @@ export default function StockInPage() {
             </div>
           </div>
         )}
+
+        {/* Reject Modal */}
+        {showRejectModal && selectedStockIn && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full">
+              <div className="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
+                <h2 className="text-2xl font-bold text-gray-900">Reject Stock In</h2>
+                <button
+                  onClick={() => {
+                    setShowRejectModal(false)
+                    setSelectedStockIn(null)
+                    setRejectionReason('')
+                  }}
+                  className="p-2 hover:bg-gray-100 rounded-lg transition"
+                >
+                  <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+
+              <div className="p-6">
+                <div className="mb-4">
+                  <p className="text-gray-700 mb-2">
+                    Are you sure you want to reject stock-in order <span className="font-bold">{selectedStockIn.reference}</span>?
+                  </p>
+                  <p className="text-sm text-gray-600">
+                    This will prevent the stock from being received.
+                  </p>
+                </div>
+
+                <div className="mb-6">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Rejection Reason (optional)
+                  </label>
+                  <textarea
+                    value={rejectionReason}
+                    onChange={(e) => setRejectionReason(e.target.value)}
+                    className="textarea"
+                    rows={4}
+                    placeholder="Provide a reason for rejection..."
+                  />
+                </div>
+
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => {
+                      setShowRejectModal(false)
+                      setSelectedStockIn(null)
+                      setRejectionReason('')
+                    }}
+                    className="btn-secondary flex-1"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleReject}
+                    className="btn-danger flex-1"
+                  >
+                    Reject Stock In
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </main>
     </div>
   )
 }
 
-function StockInCard({ stockIn, onReceive }: any) {
+function StockInCard({ stockIn, onReceive, onApprove, onReject, userRole }: any) {
+  const getApprovalBadge = () => {
+    if (stockIn.approvalStatus === 'APPROVED') {
+      return <span className="badge badge-green">Approved</span>
+    } else if (stockIn.approvalStatus === 'REJECTED') {
+      return <span className="badge badge-red">Rejected</span>
+    } else {
+      return <span className="badge badge-yellow">Pending Approval</span>
+    }
+  }
+
   return (
     <div className="card p-6 card-hover">
       <div className="flex items-start justify-between mb-6">
@@ -586,15 +788,21 @@ function StockInCard({ stockIn, onReceive }: any) {
             }`}>
               {stockIn.status}
             </span>
+            {getApprovalBadge()}
           </div>
           {stockIn.supplier && (
             <p className="text-sm text-gray-600 mb-2">
               Supplier: <span className="font-medium text-gray-900">{stockIn.supplier}</span>
             </p>
           )}
-          <p className="text-sm text-gray-600">
-            Created by <span className="font-medium text-gray-900">{stockIn.user?.name || 'Unknown'}</span> on {new Date(stockIn.createdAt).toLocaleDateString()}
+          <p className="text-sm text-gray-600 mb-1">
+            Created by <span className="font-medium text-gray-900">{stockIn.user?.name || 'Unknown'}</span> ({stockIn.user?.role}) on {new Date(stockIn.createdAt).toLocaleDateString()}
           </p>
+          {stockIn.approver && (
+            <p className="text-sm text-gray-600">
+              {stockIn.approvalStatus === 'APPROVED' ? 'Approved' : 'Rejected'} by <span className="font-medium text-gray-900">{stockIn.approver.name}</span> on {new Date(stockIn.approvedAt).toLocaleDateString()}
+            </p>
+          )}
         </div>
         <div className="text-right">
           <div className="text-3xl font-bold text-gray-900 mb-1">
@@ -633,9 +841,42 @@ function StockInCard({ stockIn, onReceive }: any) {
         </div>
       )}
 
+      {/* Rejection Reason */}
+      {stockIn.approvalStatus === 'REJECTED' && stockIn.rejectionReason && (
+        <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg">
+          <p className="text-sm font-medium text-red-900 mb-1">Rejection Reason:</p>
+          <p className="text-sm text-red-700">{stockIn.rejectionReason}</p>
+        </div>
+      )}
+
       {/* Actions */}
-      <div className="flex gap-3">
-        {stockIn.status === 'PENDING' && (
+      <div className="flex gap-3 flex-wrap">
+        {/* Approval Actions - OWNER only */}
+        {userRole === 'OWNER' && stockIn.approvalStatus === 'PENDING_APPROVAL' && stockIn.status !== 'CANCELLED' && (
+          <>
+            <button
+              onClick={() => onApprove(stockIn.id)}
+              className="btn-success flex items-center gap-2"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              </svg>
+              Approve
+            </button>
+            <button
+              onClick={() => onReject(stockIn)}
+              className="btn-danger flex items-center gap-2"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+              Reject
+            </button>
+          </>
+        )}
+
+        {/* Receive Action - Only if approved */}
+        {stockIn.status === 'PENDING' && stockIn.approvalStatus === 'APPROVED' && (
           <button
             onClick={() => onReceive(stockIn.id)}
             className="btn-success flex items-center gap-2"
@@ -646,6 +887,8 @@ function StockInCard({ stockIn, onReceive }: any) {
             Mark as Received
           </button>
         )}
+
+        {/* View Details - Always available */}
         <button
           onClick={() => window.location.href = `/stock-in/${stockIn.id}`}
           className="btn-primary flex items-center gap-2"
