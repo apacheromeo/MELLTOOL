@@ -24,6 +24,24 @@ export class CategoryService {
       });
 
       if (existingCategory) {
+        // If category exists but is inactive, reactivate it
+        if (!existingCategory.isActive) {
+          const reactivatedCategory = await this.prisma.category.update({
+            where: { id: existingCategory.id },
+            data: {
+              name,
+              nameTh,
+              description,
+              color,
+              isActive: true,
+            },
+          });
+
+          this.logger.log(`Category reactivated: ${reactivatedCategory.name}`);
+          return reactivatedCategory;
+        }
+
+        // If category exists and is active, throw conflict error
         throw new ConflictException('Category with this name already exists');
       }
 

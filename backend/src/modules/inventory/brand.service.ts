@@ -24,6 +24,23 @@ export class BrandService {
       });
 
       if (existingBrand) {
+        // If brand exists but is inactive, reactivate it
+        if (!existingBrand.isActive) {
+          const reactivatedBrand = await this.prisma.brand.update({
+            where: { id: existingBrand.id },
+            data: {
+              name,
+              nameTh,
+              logo,
+              isActive: true,
+            },
+          });
+
+          this.logger.log(`Brand reactivated: ${reactivatedBrand.name}`);
+          return reactivatedBrand;
+        }
+
+        // If brand exists and is active, throw conflict error
         throw new ConflictException('Brand with this name already exists');
       }
 
