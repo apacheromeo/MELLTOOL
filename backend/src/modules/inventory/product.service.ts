@@ -259,30 +259,40 @@ export class ProductService {
       throw new NotFoundException('Product not found');
     }
 
-    // Check if product has stock-in records
-    const stockInCount = await this.prisma.stockInItem.count({
-      where: { productId: id },
-    });
+    try {
+      // Check if product has any related records
+      const [stockInCount, shopeeItemCount, printJobCount, salesItemCount] = await Promise.all([
+        this.prisma.stockInItem.count({ where: { productId: id } }),
+        this.prisma.shopeeItem.count({ where: { productId: id } }),
+        this.prisma.printJobProduct.count({ where: { productId: id } }),
+        this.prisma.salesItem.count({ where: { productId: id } }),
+      ]);
 
-    if (stockInCount > 0) {
-      // Soft delete - mark as inactive
-      const updatedProduct = await this.prisma.product.update({
-        where: { id },
-        data: { isActive: false },
-      });
+      const hasRelations = stockInCount > 0 || shopeeItemCount > 0 || printJobCount > 0 || salesItemCount > 0;
 
-      this.logger.log(`Product soft deleted: ${updatedProduct.sku} - ${updatedProduct.name}`);
+      if (hasRelations) {
+        // Soft delete - mark as inactive if product has any relations
+        const updatedProduct = await this.prisma.product.update({
+          where: { id },
+          data: { isActive: false },
+        });
 
-      return { message: 'Product deactivated successfully' };
-    } else {
-      // Hard delete if no stock-in records
-      await this.prisma.product.delete({
-        where: { id },
-      });
+        this.logger.log(`Product soft deleted (has relations): ${updatedProduct.sku} - ${updatedProduct.name}`);
 
-      this.logger.log(`Product hard deleted: ${product.sku} - ${product.name}`);
+        return { message: 'Product deactivated successfully (has transaction history)' };
+      } else {
+        // Hard delete if no relations
+        await this.prisma.product.delete({
+          where: { id },
+        });
 
-      return { message: 'Product deleted successfully' };
+        this.logger.log(`Product hard deleted: ${product.sku} - ${product.name}`);
+
+        return { message: 'Product deleted successfully' };
+      }
+    } catch (error) {
+      this.logger.error(`Error deleting product ${id}: ${error.message}`, error);
+      throw new BadRequestException('Failed to delete product');
     }
   }
 
