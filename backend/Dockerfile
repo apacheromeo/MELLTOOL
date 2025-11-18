@@ -25,7 +25,11 @@ RUN npx prisma generate
 # Copy source code from backend directory
 COPY backend/ .
 
-# Build application (Prisma Client already generated above)
+# Regenerate Prisma Client after copying source code
+# This ensures the client includes any schema changes
+RUN npx prisma generate
+
+# Build application
 RUN npm run build
 
 # Production stage
