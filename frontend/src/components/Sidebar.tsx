@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { useAuth, type UserRole } from '@/contexts/AuthContext'
+import { useSidebar } from '@/contexts/SidebarContext'
 
 interface SubMenuItem {
   name: string
@@ -21,8 +22,7 @@ interface MenuItem {
 }
 
 export default function Sidebar() {
-  const [isCollapsed, setIsCollapsed] = useState(false)
-  const [isMobileOpen, setIsMobileOpen] = useState(false)
+  const { isCollapsed, setIsCollapsed, isMobileOpen, setIsMobileOpen } = useSidebar()
   const [expandedMenus, setExpandedMenus] = useState<string[]>([])
   const pathname = usePathname()
   const router = useRouter()
@@ -213,14 +213,14 @@ export default function Sidebar() {
       {/* Mobile Menu Toggle Button */}
       <button
         onClick={() => setIsMobileOpen(!isMobileOpen)}
-        className="md:hidden fixed safe-top safe-left z-50 p-3 rounded-xl bg-white shadow-lg border border-gray-200 hover:bg-gray-50 transition touch-manipulation m-2"
+        className="md:hidden fixed top-4 left-4 z-50 p-4 rounded-2xl bg-gradient-to-br from-blue-500 to-purple-600 text-white shadow-2xl hover:shadow-xl hover:scale-105 transition-all duration-200 touch-manipulation"
         aria-label={isMobileOpen ? 'Close menu' : 'Open menu'}
       >
-        <svg className="w-6 h-6 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}>
           {isMobileOpen ? (
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
           ) : (
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+            <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
           )}
         </svg>
       </button>
@@ -235,7 +235,7 @@ export default function Sidebar() {
 
       {/* Sidebar */}
       <aside className={`fixed left-0 top-0 h-screen bg-gradient-to-b from-white via-gray-50 to-white border-r border-gray-200 shadow-2xl transition-all duration-300 z-40 flex flex-col
-        ${isCollapsed ? 'w-20 md:w-80 lg:w-20' : 'w-64 md:w-80'}
+        ${isCollapsed ? 'w-20 md:w-80 lg:w-20' : 'w-64 md:w-80 lg:w-64'}
         ${isMobileOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
       `}>
         {/* Logo Section */}

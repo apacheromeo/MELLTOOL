@@ -3,6 +3,7 @@
 import { useRouter } from 'next/navigation'
 import Sidebar from './Sidebar'
 import { useAuth } from '@/contexts/AuthContext'
+import { useSidebar } from '@/contexts/SidebarContext'
 
 interface SidebarLayoutProps {
   children: React.ReactNode
@@ -10,14 +11,26 @@ interface SidebarLayoutProps {
 
 export default function SidebarLayout({ children }: SidebarLayoutProps) {
   const { user, loading } = useAuth()
+  const { isCollapsed } = useSidebar()
   const router = useRouter()
+
+  // Calculate margin based on sidebar state
+  const getMainMargin = () => {
+    // Mobile: no margin (sidebar is overlay)
+    // Tablet (md): always 320px (md:ml-80)
+    // Desktop (lg): 256px when expanded (lg:ml-64), 80px when collapsed (lg:ml-20)
+    if (isCollapsed) {
+      return 'ml-0 md:ml-80 lg:ml-20'
+    }
+    return 'ml-0 md:ml-80 lg:ml-64'
+  }
 
   // Show loading state while checking authentication
   if (loading) {
     return (
       <div className="flex min-h-screen bg-gray-50">
         <Sidebar />
-        <main className="flex-1 ml-0 md:ml-80 min-h-screen flex items-center justify-center">
+        <main className={`flex-1 ${getMainMargin()} min-h-screen flex items-center justify-center transition-all duration-300`}>
           <div className="text-center">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
             <p className="text-gray-600">Loading...</p>
@@ -32,7 +45,7 @@ export default function SidebarLayout({ children }: SidebarLayoutProps) {
     return (
       <div className="flex min-h-screen bg-gray-50">
         <Sidebar />
-        <main className="flex-1 ml-0 md:ml-80 min-h-screen flex items-center justify-center p-4">
+        <main className={`flex-1 ${getMainMargin()} min-h-screen flex items-center justify-center p-4 transition-all duration-300`}>
           <div className="max-w-md w-full">
             <div className="bg-white rounded-2xl shadow-xl p-8 text-center border border-gray-200">
               {/* Lock Icon */}
@@ -81,7 +94,7 @@ export default function SidebarLayout({ children }: SidebarLayoutProps) {
   return (
     <div className="flex min-h-screen bg-gray-50">
       <Sidebar />
-      <main className="flex-1 ml-0 md:ml-80 min-h-screen">
+      <main className={`flex-1 ${getMainMargin()} min-h-screen transition-all duration-300`}>
         {children}
       </main>
     </div>
