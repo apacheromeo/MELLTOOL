@@ -65,6 +65,19 @@ export class StockInController {
     return this.stockInService.getPendingApprovals();
   }
 
+  @Get('analytics/summary')
+  @ApiOperation({ summary: 'Get stock-in analytics summary' })
+  @ApiQuery({ name: 'days', required: false, type: Number })
+  async getAnalytics(@Query('days') days: number = 30) {
+    return this.stockInService.getAnalytics(days);
+  }
+
+  @Get('supplier/:supplier')
+  @ApiOperation({ summary: 'Get stock-ins by supplier' })
+  async getBySupplier(@Param('supplier') supplier: string) {
+    return this.stockInService.getBySupplier(supplier);
+  }
+
   @Get(':id')
   @ApiOperation({ summary: 'Get stock-in order by ID' })
   @ApiResponse({ status: 200, description: 'Stock-in found' })
@@ -135,19 +148,6 @@ export class StockInController {
   async remove(@Param('id') id: string, @Request() req) {
     this.logger.log(`Deleting stock-in ${id} by user: ${req.user.email}`);
     return this.stockInService.remove(id);
-  }
-
-  @Get('analytics/summary')
-  @ApiOperation({ summary: 'Get stock-in analytics summary' })
-  @ApiQuery({ name: 'days', required: false, type: Number })
-  async getAnalytics(@Query('days') days: number = 30) {
-    return this.stockInService.getAnalytics(days);
-  }
-
-  @Get('supplier/:supplier')
-  @ApiOperation({ summary: 'Get stock-ins by supplier' })
-  async getBySupplier(@Param('supplier') supplier: string) {
-    return this.stockInService.getBySupplier(supplier);
   }
 }
 
