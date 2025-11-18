@@ -22,11 +22,12 @@ model User {
   updatedAt DateTime @updatedAt
 
   // Relations
-  stockIns     StockIn[]
-  shopeeShops  ShopeeShop[]
-  printJobs    PrintJob[]
-  salesOrders  SalesOrder[]
-  expenses     Expense[]
+  stockIns          StockIn[]  @relation("StockInCreator")
+  approvedStockIns  StockIn[]  @relation("StockInApprovals")
+  shopeeShops       ShopeeShop[]
+  printJobs         PrintJob[]
+  salesOrders       SalesOrder[]
+  expenses          Expense[]
 
   @@index([email])
   @@index([role])
@@ -150,7 +151,14 @@ model StockIn {
   totalCost   Float       @default(0)
   totalQty    Int         @default(0)
   status      StockInStatus @default(PENDING)
-  
+
+  // Approval workflow
+  approvalStatus   ApprovalStatus @default(PENDING_APPROVAL)
+  approvedBy       String?
+  approver         User?          @relation("StockInApprovals", fields: [approvedBy], references: [id])
+  approvedAt       DateTime?
+  rejectionReason  String?
+
   // Timestamps
   receivedAt  DateTime?
   createdAt   DateTime    @default(now())
@@ -158,10 +166,12 @@ model StockIn {
 
   // Relations
   userId    String
-  user      User        @relation(fields: [userId], references: [id])
-  
+  user      User        @relation("StockInCreator", fields: [userId], references: [id])
+
   items     StockInItem[]
 
+  @@index([approvalStatus])
+  @@index([approvedBy])
   @@map("stock_ins")
 }
 
@@ -169,6 +179,12 @@ enum StockInStatus {
   PENDING
   RECEIVED
   CANCELLED
+}
+
+enum ApprovalStatus {
+  PENDING_APPROVAL
+  APPROVED
+  REJECTED
 }
 
 // Stock In Items (Individual products in a stock-in)
