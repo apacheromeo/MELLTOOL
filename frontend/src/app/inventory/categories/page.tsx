@@ -3,16 +3,19 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import SidebarLayout from '@/components/SidebarLayout'
+import api from '@/lib/api'
 
 interface Category {
   id: string
   name: string
-  nameTh: string
+  nameTh?: string
   description?: string
-  productCount: number
-  color: string
-  icon: string
+  color?: string
+  isActive: boolean
   createdAt: string
+  _count?: {
+    products: number
+  }
 }
 
 export default function CategoriesPage() {
@@ -21,118 +24,76 @@ export default function CategoriesPage() {
   const [loading, setLoading] = useState(true)
   const [showModal, setShowModal] = useState(false)
   const [editingCategory, setEditingCategory] = useState<Category | null>(null)
+  const [error, setError] = useState<string | null>(null)
   const [formData, setFormData] = useState({
     name: '',
     nameTh: '',
     description: '',
-    color: '#3B82F6',
-    icon: '📦'
+    color: '#3B82F6'
   })
 
-  // Mock data for demonstration
   useEffect(() => {
     loadCategories()
   }, [])
 
-  const loadCategories = () => {
+  const loadCategories = async () => {
     setLoading(true)
-    // Simulate API call
-    setTimeout(() => {
-      setCategories([
-        {
-          id: '1',
-          name: 'Vacuum Parts',
-          nameTh: 'อะไหล่เครื่องดูดฝุ่น',
-          description: 'Replacement parts for vacuum cleaners',
-          productCount: 145,
-          color: '#3B82F6',
-          icon: '🔧',
-          createdAt: '2024-01-15'
-        },
-        {
-          id: '2',
-          name: 'Filters',
-          nameTh: 'ฟิลเตอร์',
-          description: 'HEPA and standard filters',
-          productCount: 89,
-          color: '#10B981',
-          icon: '🌪️',
-          createdAt: '2024-01-20'
-        },
-        {
-          id: '3',
-          name: 'Batteries',
-          nameTh: 'แบตเตอรี่',
-          description: 'Rechargeable batteries for cordless vacuums',
-          productCount: 56,
-          color: '#F59E0B',
-          icon: '🔋',
-          createdAt: '2024-02-01'
-        },
-        {
-          id: '4',
-          name: 'Brushes',
-          nameTh: 'แปรง',
-          description: 'Rotating brushes and attachments',
-          productCount: 72,
-          color: '#8B5CF6',
-          icon: '🧹',
-          createdAt: '2024-02-10'
-        },
-        {
-          id: '5',
-          name: 'Motors',
-          nameTh: 'มอเตอร์',
-          description: 'Replacement motors and fans',
-          productCount: 34,
-          color: '#EF4444',
-          icon: '⚙️',
-          createdAt: '2024-02-15'
-        }
-      ])
+    setError(null)
+    try {
+      const data = await api.getCategories()
+      setCategories(data)
+    } catch (err: any) {
+      console.error('Failed to load categories:', err)
+      setError(err.message || 'Failed to load categories')
+    } finally {
       setLoading(false)
-    }, 500)
+    }
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    
-    if (editingCategory) {
-      // Update existing category
-      setCategories(categories.map(cat => 
-        cat.id === editingCategory.id 
-          ? { ...cat, ...formData, productCount: cat.productCount }
-          : cat
-      ))
-    } else {
-      // Create new category
-      const newCategory: Category = {
-        id: Date.now().toString(),
-        ...formData,
-        productCount: 0,
-        createdAt: new Date().toISOString().split('T')[0]
+    setError(null)
+
+    try {
+      if (editingCategory) {
+        // Update existing category
+        await api.updateCategory(editingCategory.id, formData)
+      } else {
+        // Create new category
+        await api.createCategory(formData)
       }
-      setCategories([newCategory, ...categories])
+
+      await loadCategories()
+      closeModal()
+    } catch (err: any) {
+      console.error('Failed to save category:', err)
+      setError(err.message || 'Failed to save category')
     }
-    
-    closeModal()
   }
 
   const handleEdit = (category: Category) => {
     setEditingCategory(category)
     setFormData({
       name: category.name,
-      nameTh: category.nameTh,
+      nameTh: category.nameTh || '',
       description: category.description || '',
-      color: category.color,
-      icon: category.icon
+      color: category.color || '#3B82F6'
     })
     setShowModal(true)
   }
 
-  const handleDelete = (id: string) => {
-    if (confirm('Are you sure you want to delete this category?')) {
-      setCategories(categories.filter(cat => cat.id !== id))
+  const handleDelete = async (id: string) => {
+    if (!confirm('Are you sure you want to delete this category?')) {
+      return
+    }
+
+    setError(null)
+    try {
+      await api.deleteCategory(id)
+      await loadCategories()
+    } catch (err: any) {
+      console.error('Failed to delete category:', err)
+      setError(err.message || 'Failed to delete category')
     }
   }
 
@@ -143,12 +104,18 @@ export default function CategoriesPage() {
       name: '',
       nameTh: '',
       description: '',
-      color: '#3B82F6',
-      icon: '📦'
+      color: '#3B82F6'
     })
+    setError(null)
   }
 
-  const iconOptions = ['📦', '🔧', '🌪️', '🔋', '🧹', '⚙️', '🔌', '💡', '🛠️', '📱', '💻', '🎮']
+  const getProductCount = (category: Category) => {
+    return category._count?.products || 0
+  }
+
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString()
+  }
 
   return (
     <SidebarLayout>
@@ -171,6 +138,24 @@ export default function CategoriesPage() {
           </button>
         </div>
 
+        {/* Error Message */}
+        {error && (
+          <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg flex items-start gap-3">
+            <svg className="w-5 h-5 text-red-600 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <div>
+              <h3 className="text-sm font-medium text-red-800">Error</h3>
+              <p className="text-sm text-red-700 mt-1">{error}</p>
+            </div>
+            <button onClick={() => setError(null)} className="ml-auto text-red-600 hover:text-red-800">
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+        )}
+
         {/* Stats */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
           <div className="card p-6">
@@ -192,7 +177,7 @@ export default function CategoriesPage() {
               <div>
                 <p className="text-sm text-gray-600 mb-1">Total Products</p>
                 <p className="text-3xl font-bold text-gray-900">
-                  {categories.reduce((sum, cat) => sum + cat.productCount, 0)}
+                  {categories.reduce((sum, cat) => sum + getProductCount(cat), 0)}
                 </p>
               </div>
               <div className="w-12 h-12 rounded-lg bg-green-100 flex items-center justify-center">
@@ -208,7 +193,7 @@ export default function CategoriesPage() {
               <div>
                 <p className="text-sm text-gray-600 mb-1">Avg per Category</p>
                 <p className="text-3xl font-bold text-gray-900">
-                  {categories.length > 0 ? Math.round(categories.reduce((sum, cat) => sum + cat.productCount, 0) / categories.length) : 0}
+                  {categories.length > 0 ? Math.round(categories.reduce((sum, cat) => sum + getProductCount(cat), 0) / categories.length) : 0}
                 </p>
               </div>
               <div className="w-12 h-12 rounded-lg bg-purple-100 flex items-center justify-center">
@@ -224,7 +209,7 @@ export default function CategoriesPage() {
               <div>
                 <p className="text-sm text-gray-600 mb-1">Most Popular</p>
                 <p className="text-xl font-bold text-gray-900">
-                  {categories.length > 0 ? categories.reduce((max, cat) => cat.productCount > max.productCount ? cat : max, categories[0]).name : 'N/A'}
+                  {categories.length > 0 ? categories.reduce((max, cat) => getProductCount(cat) > getProductCount(max) ? cat : max, categories[0]).name : 'N/A'}
                 </p>
               </div>
               <div className="w-12 h-12 rounded-lg bg-yellow-100 flex items-center justify-center">
@@ -266,9 +251,9 @@ export default function CategoriesPage() {
                 <div className="flex items-start justify-between mb-4">
                   <div
                     className="w-14 h-14 rounded-lg flex items-center justify-center text-2xl"
-                    style={{ backgroundColor: `${category.color}20` }}
+                    style={{ backgroundColor: `${category.color || '#3B82F6'}20` }}
                   >
-                    {category.icon}
+                    📦
                   </div>
                   <div className="flex gap-2">
                     <button
@@ -293,7 +278,9 @@ export default function CategoriesPage() {
                 </div>
 
                 <h3 className="text-lg font-semibold text-gray-900 mb-1">{category.name}</h3>
-                <p className="text-sm text-gray-600 mb-2">{category.nameTh}</p>
+                {category.nameTh && (
+                  <p className="text-sm text-gray-600 mb-2">{category.nameTh}</p>
+                )}
                 {category.description && (
                   <p className="text-xs text-gray-500 mb-4">{category.description}</p>
                 )}
@@ -303,9 +290,9 @@ export default function CategoriesPage() {
                     <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
                     </svg>
-                    <span className="text-sm font-medium text-gray-700">{category.productCount} products</span>
+                    <span className="text-sm font-medium text-gray-700">{getProductCount(category)} products</span>
                   </div>
-                  <span className="text-xs text-gray-500">{category.createdAt}</span>
+                  <span className="text-xs text-gray-500">{formatDate(category.createdAt)}</span>
                 </div>
               </div>
             ))}
@@ -348,11 +335,10 @@ export default function CategoriesPage() {
 
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Category Name (Thai) *
+                      Category Name (Thai)
                     </label>
                     <input
                       type="text"
-                      required
                       value={formData.nameTh}
                       onChange={(e) => setFormData({ ...formData, nameTh: e.target.value })}
                       className="input"
@@ -371,28 +357,6 @@ export default function CategoriesPage() {
                       rows={3}
                       placeholder="Brief description of this category"
                     />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Icon
-                    </label>
-                    <div className="grid grid-cols-6 gap-2">
-                      {iconOptions.map((icon) => (
-                        <button
-                          key={icon}
-                          type="button"
-                          onClick={() => setFormData({ ...formData, icon })}
-                          className={`p-3 text-2xl rounded-lg border-2 transition ${
-                            formData.icon === icon
-                              ? 'border-blue-500 bg-blue-50'
-                              : 'border-gray-200 hover:border-gray-300'
-                          }`}
-                        >
-                          {icon}
-                        </button>
-                      ))}
-                    </div>
                   </div>
 
                   <div>

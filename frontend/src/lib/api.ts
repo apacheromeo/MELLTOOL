@@ -160,6 +160,26 @@ class ApiClient {
     return this.request('/inventory/categories');
   }
 
+  async createCategory(data: any) {
+    return this.request('/inventory/categories', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async updateCategory(id: string, data: any) {
+    return this.request(`/inventory/categories/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async deleteCategory(id: string) {
+    return this.request(`/inventory/categories/${id}`, {
+      method: 'DELETE',
+    });
+  }
+
   async getBrands() {
     return this.request('/inventory/brands');
   }
