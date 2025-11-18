@@ -184,6 +184,26 @@ class ApiClient {
     return this.request('/inventory/brands');
   }
 
+  async createBrand(data: any) {
+    return this.request('/inventory/brands', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async updateBrand(id: string, data: any) {
+    return this.request(`/inventory/brands/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async deleteBrand(id: string) {
+    return this.request(`/inventory/brands/${id}`, {
+      method: 'DELETE',
+    });
+  }
+
   // Product Import endpoints
   async importProducts(file: File, options?: { updateExisting?: boolean; skipErrors?: boolean }) {
     const formData = new FormData();

@@ -3,17 +3,18 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import SidebarLayout from '@/components/SidebarLayout'
+import api from '@/lib/api'
 
 interface Brand {
   id: string
   name: string
-  nameTh: string
-  description?: string
-  website?: string
+  nameTh?: string
   logo?: string
-  productCount: number
-  country: string
+  isActive: boolean
   createdAt: string
+  _count?: {
+    products: number
+  }
 }
 
 export default function BrandsPage() {
@@ -22,163 +23,98 @@ export default function BrandsPage() {
   const [loading, setLoading] = useState(true)
   const [showModal, setShowModal] = useState(false)
   const [editingBrand, setEditingBrand] = useState<Brand | null>(null)
+  const [error, setError] = useState<string | null>(null)
   const [searchTerm, setSearchTerm] = useState('')
   const [formData, setFormData] = useState({
     name: '',
     nameTh: '',
-    description: '',
-    website: '',
-    logo: '',
-    country: 'Thailand'
+    logo: '🏷️'
   })
-  const [logoPreview, setLogoPreview] = useState<string | null>(null)
-  const [useEmojiLogo, setUseEmojiLogo] = useState(true)
 
   useEffect(() => {
     loadBrands()
   }, [])
 
-  const loadBrands = () => {
+  const loadBrands = async () => {
     setLoading(true)
-    setTimeout(() => {
-      setBrands([
-        {
-          id: '1',
-          name: 'Dyson',
-          nameTh: 'ไดสัน',
-          description: 'Premium vacuum cleaner manufacturer',
-          website: 'https://www.dyson.com',
-          logo: '🌀',
-          productCount: 45,
-          country: 'United Kingdom',
-          createdAt: '2024-01-10'
-        },
-        {
-          id: '2',
-          name: 'Xiaomi',
-          nameTh: 'เสี่ยวมี่',
-          description: 'Smart home and electronics',
-          website: 'https://www.mi.com',
-          logo: '📱',
-          productCount: 67,
-          country: 'China',
-          createdAt: '2024-01-15'
-        },
-        {
-          id: '3',
-          name: 'Electrolux',
-          nameTh: 'อีเล็กโทรลักซ์',
-          description: 'Home appliances and professional products',
-          website: 'https://www.electrolux.com',
-          logo: '⚡',
-          productCount: 89,
-          country: 'Sweden',
-          createdAt: '2024-01-20'
-        },
-        {
-          id: '4',
-          name: 'Samsung',
-          nameTh: 'ซัมซุง',
-          description: 'Electronics and home appliances',
-          website: 'https://www.samsung.com',
-          logo: '📺',
-          productCount: 52,
-          country: 'South Korea',
-          createdAt: '2024-02-01'
-        },
-        {
-          id: '5',
-          name: 'Philips',
-          nameTh: 'ฟิลิปส์',
-          description: 'Health technology and consumer electronics',
-          website: 'https://www.philips.com',
-          logo: '💡',
-          productCount: 38,
-          country: 'Netherlands',
-          createdAt: '2024-02-05'
-        }
-      ])
+    setError(null)
+    try {
+      const data = await api.getBrands()
+      setBrands(data)
+    } catch (err: any) {
+      console.error('Failed to load brands:', err)
+      setError(err.message || 'Failed to load brands')
+    } finally {
       setLoading(false)
-    }, 500)
+    }
   }
 
   const filteredBrands = brands.filter(brand =>
     brand.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    brand.nameTh.includes(searchTerm) ||
-    brand.country.toLowerCase().includes(searchTerm.toLowerCase())
+    (brand.nameTh && brand.nameTh.includes(searchTerm))
   )
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    
-    if (editingBrand) {
-      setBrands(brands.map(brand => 
-        brand.id === editingBrand.id 
-          ? { ...brand, ...formData, productCount: brand.productCount }
-          : brand
-      ))
-    } else {
-      const newBrand: Brand = {
-        id: Date.now().toString(),
-        ...formData,
-        productCount: 0,
-        createdAt: new Date().toISOString().split('T')[0]
-      }
-      setBrands([newBrand, ...brands])
-    }
-    
-    closeModal()
-  }
+    setError(null)
 
-  const handleLogoImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (file) {
-      const reader = new FileReader()
-      reader.onloadend = () => {
-        setLogoPreview(reader.result as string)
-        setFormData({ ...formData, logo: reader.result as string })
+    try {
+      if (editingBrand) {
+        await api.updateBrand(editingBrand.id, formData)
+      } else {
+        await api.createBrand(formData)
       }
-      reader.readAsDataURL(file)
+
+      await loadBrands()
+      closeModal()
+    } catch (err: any) {
+      console.error('Failed to save brand:', err)
+      setError(err.message || 'Failed to save brand')
     }
   }
 
   const handleEdit = (brand: Brand) => {
     setEditingBrand(brand)
-    const isEmoji = brand.logo && brand.logo.length <= 2
-    setUseEmojiLogo(isEmoji)
     setFormData({
       name: brand.name,
-      nameTh: brand.nameTh,
-      description: brand.description || '',
-      website: brand.website || '',
-      logo: brand.logo || '🏷️',
-      country: brand.country
+      nameTh: brand.nameTh || '',
+      logo: brand.logo || '🏷️'
     })
-    if (!isEmoji) {
-      setLogoPreview(brand.logo || null)
-    }
     setShowModal(true)
   }
 
-  const handleDelete = (id: string) => {
-    if (confirm('Are you sure you want to delete this brand?')) {
-      setBrands(brands.filter(brand => brand.id !== id))
+  const handleDelete = async (id: string) => {
+    if (!confirm('Are you sure you want to delete this brand?')) {
+      return
+    }
+
+    setError(null)
+    try {
+      await api.deleteBrand(id)
+      await loadBrands()
+    } catch (err: any) {
+      console.error('Failed to delete brand:', err)
+      setError(err.message || 'Failed to delete brand')
     }
   }
 
   const closeModal = () => {
     setShowModal(false)
     setEditingBrand(null)
-    setLogoPreview(null)
-    setUseEmojiLogo(true)
     setFormData({
       name: '',
       nameTh: '',
-      description: '',
-      website: '',
-      logo: '🏷️',
-      country: 'Thailand'
+      logo: '🏷️'
     })
+    setError(null)
+  }
+
+  const getProductCount = (brand: Brand) => {
+    return brand._count?.products || 0
+  }
+
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString()
   }
 
   const logoOptions = ['🏷️', '🌀', '📱', '⚡', '📺', '💡', '🔧', '🛠️', '⚙️', '🎯', '🌟', '💼']
@@ -204,6 +140,24 @@ export default function BrandsPage() {
           </button>
         </div>
 
+        {/* Error Message */}
+        {error && (
+          <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg flex items-start gap-3">
+            <svg className="w-5 h-5 text-red-600 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <div>
+              <h3 className="text-sm font-medium text-red-800">Error</h3>
+              <p className="text-sm text-red-700 mt-1">{error}</p>
+            </div>
+            <button onClick={() => setError(null)} className="ml-auto text-red-600 hover:text-red-800">
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+        )}
+
         {/* Search Bar */}
         <div className="card p-4 mb-6">
           <div className="relative">
@@ -214,7 +168,7 @@ export default function BrandsPage() {
               type="text"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Search brands by name or country..."
+              placeholder="Search brands by name..."
               className="input pl-10"
             />
           </div>
@@ -241,7 +195,7 @@ export default function BrandsPage() {
               <div>
                 <p className="text-sm text-gray-600 mb-1">Total Products</p>
                 <p className="text-3xl font-bold text-gray-900">
-                  {brands.reduce((sum, brand) => sum + brand.productCount, 0)}
+                  {brands.reduce((sum, brand) => sum + getProductCount(brand), 0)}
                 </p>
               </div>
               <div className="w-12 h-12 rounded-lg bg-green-100 flex items-center justify-center">
@@ -257,7 +211,7 @@ export default function BrandsPage() {
               <div>
                 <p className="text-sm text-gray-600 mb-1">Top Brand</p>
                 <p className="text-xl font-bold text-gray-900">
-                  {brands.length > 0 ? brands.reduce((max, brand) => brand.productCount > max.productCount ? brand : max, brands[0]).name : 'N/A'}
+                  {brands.length > 0 ? brands.reduce((max, brand) => getProductCount(brand) > getProductCount(max) ? brand : max, brands[0]).name : 'N/A'}
                 </p>
               </div>
               <div className="w-12 h-12 rounded-lg bg-yellow-100 flex items-center justify-center">
@@ -305,9 +259,7 @@ export default function BrandsPage() {
                 <thead className="bg-gray-50 border-b border-gray-200">
                   <tr>
                     <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Brand</th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Country</th>
                     <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Products</th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Website</th>
                     <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Created</th>
                     <th className="px-6 py-4 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">Actions</th>
                   </tr>
@@ -321,40 +273,22 @@ export default function BrandsPage() {
                             {brand.logo && brand.logo.startsWith('data:image') ? (
                               <img src={brand.logo} alt={brand.name} className="w-full h-full object-cover" />
                             ) : (
-                              <span>{brand.logo}</span>
+                              <span>{brand.logo || '🏷️'}</span>
                             )}
                           </div>
                           <div>
                             <div className="font-semibold text-gray-900">{brand.name}</div>
-                            <div className="text-sm text-gray-600">{brand.nameTh}</div>
+                            {brand.nameTh && (
+                              <div className="text-sm text-gray-600">{brand.nameTh}</div>
+                            )}
                           </div>
                         </div>
                       </td>
                       <td className="px-6 py-4">
-                        <span className="text-sm text-gray-700">{brand.country}</span>
+                        <span className="badge badge-blue">{getProductCount(brand)} items</span>
                       </td>
                       <td className="px-6 py-4">
-                        <span className="badge badge-blue">{brand.productCount} items</span>
-                      </td>
-                      <td className="px-6 py-4">
-                        {brand.website ? (
-                          <a
-                            href={brand.website}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-sm text-blue-600 hover:text-blue-700 flex items-center gap-1"
-                          >
-                            Visit
-                            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                            </svg>
-                          </a>
-                        ) : (
-                          <span className="text-sm text-gray-400">-</span>
-                        )}
-                      </td>
-                      <td className="px-6 py-4">
-                        <span className="text-sm text-gray-600">{brand.createdAt}</span>
+                        <span className="text-sm text-gray-600">{formatDate(brand.createdAt)}</span>
                       </td>
                       <td className="px-6 py-4">
                         <div className="flex items-center justify-end gap-2">
@@ -389,7 +323,7 @@ export default function BrandsPage() {
         {/* Add/Edit Modal */}
         {showModal && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 max-h-[90vh] overflow-y-auto">
+            <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6">
               <div className="flex items-center justify-between mb-6">
                 <h2 className="text-2xl font-bold text-gray-900">
                   {editingBrand ? 'Edit Brand' : 'Add New Brand'}
@@ -422,11 +356,10 @@ export default function BrandsPage() {
 
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Brand Name (Thai) *
+                      Brand Name (Thai)
                     </label>
                     <input
                       type="text"
-                      required
                       value={formData.nameTh}
                       onChange={(e) => setFormData({ ...formData, nameTh: e.target.value })}
                       className="input"
@@ -436,160 +369,24 @@ export default function BrandsPage() {
 
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Description
-                    </label>
-                    <textarea
-                      value={formData.description}
-                      onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                      className="textarea"
-                      rows={3}
-                      placeholder="Brief description of the brand"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Website
-                    </label>
-                    <input
-                      type="url"
-                      value={formData.website}
-                      onChange={(e) => setFormData({ ...formData, website: e.target.value })}
-                      className="input"
-                      placeholder="https://www.example.com"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Country *
-                    </label>
-                    <select
-                      required
-                      value={formData.country}
-                      onChange={(e) => setFormData({ ...formData, country: e.target.value })}
-                      className="select"
-                    >
-                      <option value="Thailand">Thailand</option>
-                      <option value="China">China</option>
-                      <option value="Japan">Japan</option>
-                      <option value="South Korea">South Korea</option>
-                      <option value="United States">United States</option>
-                      <option value="Germany">Germany</option>
-                      <option value="United Kingdom">United Kingdom</option>
-                      <option value="Sweden">Sweden</option>
-                      <option value="Netherlands">Netherlands</option>
-                      <option value="Other">Other</option>
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
                       Logo/Icon
                     </label>
-                    
-                    {/* Toggle between Emoji and Image */}
-                    <div className="flex gap-2 mb-4">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setUseEmojiLogo(true)
-                          setLogoPreview(null)
-                          setFormData({ ...formData, logo: '🏷️' })
-                        }}
-                        className={`px-4 py-2 rounded-lg text-sm font-medium transition ${
-                          useEmojiLogo
-                            ? 'bg-blue-500 text-white'
-                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                        }`}
-                      >
-                        Use Emoji
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setUseEmojiLogo(false)
-                          setFormData({ ...formData, logo: '' })
-                        }}
-                        className={`px-4 py-2 rounded-lg text-sm font-medium transition ${
-                          !useEmojiLogo
-                            ? 'bg-blue-500 text-white'
-                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                        }`}
-                      >
-                        Upload Image
-                      </button>
+                    <div className="grid grid-cols-6 gap-2">
+                      {logoOptions.map((logo) => (
+                        <button
+                          key={logo}
+                          type="button"
+                          onClick={() => setFormData({ ...formData, logo })}
+                          className={`p-3 text-2xl rounded-lg border-2 transition ${
+                            formData.logo === logo
+                              ? 'border-blue-500 bg-blue-50'
+                              : 'border-gray-200 hover:border-gray-300'
+                          }`}
+                        >
+                          {logo}
+                        </button>
+                      ))}
                     </div>
-
-                    {useEmojiLogo ? (
-                      <div className="grid grid-cols-6 gap-2">
-                        {logoOptions.map((logo) => (
-                          <button
-                            key={logo}
-                            type="button"
-                            onClick={() => setFormData({ ...formData, logo })}
-                            className={`p-3 text-2xl rounded-lg border-2 transition ${
-                              formData.logo === logo
-                                ? 'border-blue-500 bg-blue-50'
-                                : 'border-gray-200 hover:border-gray-300'
-                            }`}
-                          >
-                            {logo}
-                          </button>
-                        ))}
-                      </div>
-                    ) : (
-                      <div className="flex items-center gap-4">
-                        {logoPreview ? (
-                          <div className="relative">
-                            <img
-                              src={logoPreview}
-                              alt="Logo preview"
-                              className="w-24 h-24 object-cover rounded-lg border-2 border-gray-200"
-                            />
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setLogoPreview(null)
-                                setFormData({ ...formData, logo: '' })
-                              }}
-                              className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600 transition"
-                            >
-                              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                              </svg>
-                            </button>
-                          </div>
-                        ) : (
-                          <div className="w-24 h-24 border-2 border-dashed border-gray-300 rounded-lg flex items-center justify-center bg-gray-50">
-                            <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                            </svg>
-                          </div>
-                        )}
-                        <div className="flex-1">
-                          <input
-                            type="file"
-                            accept="image/*"
-                            onChange={handleLogoImageChange}
-                            className="hidden"
-                            id="brand-logo"
-                          />
-                          <label
-                            htmlFor="brand-logo"
-                            className="btn-secondary cursor-pointer inline-flex items-center gap-2 text-sm"
-                          >
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-                            </svg>
-                            Upload Logo
-                          </label>
-                          <p className="text-xs text-gray-500 mt-2">
-                            PNG, JPG up to 2MB
-                          </p>
-                        </div>
-                      </div>
-                    )}
                   </div>
                 </div>
 
