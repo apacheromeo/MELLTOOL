@@ -611,6 +611,34 @@ class ApiClient {
       body: JSON.stringify({ userId }),
     });
   }
+
+  // Notification endpoints
+  async getNotificationSettings() {
+    return this.request('/notifications/settings');
+  }
+
+  async updateNotificationSettings(settings: {
+    emailNotificationsEnabled?: boolean;
+    lowStockEmailEnabled?: boolean;
+    stockInApprovalEmailEnabled?: boolean;
+  }) {
+    return this.request('/notifications/settings', {
+      method: 'PATCH',
+      body: JSON.stringify(settings),
+    });
+  }
+
+  async sendLowStockAlert() {
+    return this.request('/notifications/low-stock/send', {
+      method: 'POST',
+    });
+  }
+
+  async sendLowStockAlertToAll() {
+    return this.request('/notifications/low-stock/send-all', {
+      method: 'POST',
+    });
+  }
 }
 
 export const api = new ApiClient(API_URL);

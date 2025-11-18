@@ -21,6 +21,11 @@ model User {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  // Email Notification Settings
+  emailNotificationsEnabled Boolean @default(true)
+  lowStockEmailEnabled      Boolean @default(false)
+  stockInApprovalEmailEnabled Boolean @default(true)
+
   // Relations
   stockIns          StockIn[]  @relation("StockInCreator")
   approvedStockIns  StockIn[]  @relation("StockInApprovals")

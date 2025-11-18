@@ -20,6 +20,7 @@ import { DashboardModule } from './modules/dashboard/dashboard.module';
 import { ForecastingModule } from './modules/forecasting/forecasting.module';
 import { SalesModule } from './modules/sales/sales.module';
 import { AccountingModule } from './modules/accounting/accounting.module';
+import { NotificationsModule } from './modules/notifications/notifications.module';
 
 import { configuration } from './config/configuration';
 import { validationSchema } from './config/validation';
@@ -97,6 +98,7 @@ import { HealthController } from './health.controller';
     ForecastingModule,
     SalesModule,
     AccountingModule,
+    NotificationsModule,
   ],
   controllers: [HealthController],
 })

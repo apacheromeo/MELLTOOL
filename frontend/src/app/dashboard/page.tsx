@@ -205,7 +205,7 @@ export default function DashboardPage() {
                     </svg>
                     <div className="text-sm font-medium text-gray-700 group-hover:text-blue-600">Add Product</div>
                   </a>
-                  <a href="/stock-in/new" className="p-4 border-2 border-dashed border-gray-300 rounded-lg hover:border-green-500 hover:bg-green-50 transition text-center group">
+                  <a href="/stock-in" className="p-4 border-2 border-dashed border-gray-300 rounded-lg hover:border-green-500 hover:bg-green-50 transition text-center group">
                     <svg className="w-8 h-8 mx-auto mb-2 text-gray-400 group-hover:text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10" />
                     </svg>

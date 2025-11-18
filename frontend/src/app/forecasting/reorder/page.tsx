@@ -504,7 +504,7 @@ export default function ReorderPage() {
                         <div className="flex items-center justify-end gap-2">
                           {(product.status === 'critical' || product.status === 'reorder-now') && (
                             <button
-                              onClick={() => router.push(`/stock-in/new?product=${product.id}&qty=${product.optimalOrderQty}`)}
+                              onClick={() => router.push(`/stock-in?product=${product.id}&qty=${product.optimalOrderQty}`)}
                               className="btn-primary text-sm px-4 py-2"
                             >
                               Order Now

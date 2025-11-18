@@ -1,11 +1,12 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { api } from '@/lib/api'
 import Sidebar from '@/components/Sidebar'
 import BarcodePrintLabels from '@/components/BarcodePrintLabels'
 import { exportStockMovementReportPDF } from '@/lib/pdf-export'
+import { Html5Qrcode } from 'html5-qrcode'
 
 interface StockInItem {
   productId: string
@@ -32,6 +33,10 @@ export default function StockInPage() {
   const [printLabels, setPrintLabels] = useState<any[]>([])
   const [showPrintModal, setShowPrintModal] = useState(false)
   const [userRole, setUserRole] = useState<string | null>(null)
+  const [showScannerModal, setShowScannerModal] = useState(false)
+  const [scannerItemIndex, setScannerItemIndex] = useState<number | null>(null)
+  const [productSearch, setProductSearch] = useState<string[]>([])
+  const scannerRef = useRef<Html5Qrcode | null>(null)
   const router = useRouter()
 
   useEffect(() => {
@@ -177,10 +182,12 @@ export default function StockInPage() {
 
   const addItem = () => {
     setItems([...items, { productId: '', quantity: 1, unitCost: 0 }])
+    setProductSearch([...productSearch, ''])
   }
 
   const removeItem = (index: number) => {
     setItems(items.filter((_, i) => i !== index))
+    setProductSearch(productSearch.filter((_, i) => i !== index))
   }
 
   const updateItem = (index: number, field: keyof StockInItem, value: any) => {
@@ -229,12 +236,97 @@ export default function StockInPage() {
   const closeModal = () => {
     setShowModal(false)
     setItems([])
+    setProductSearch([])
     setFormData({
       reference: `SI-${Date.now()}`,
       supplier: '',
       notes: '',
     })
   }
+
+  const openScanner = (index: number) => {
+    setScannerItemIndex(index)
+    setShowScannerModal(true)
+  }
+
+  const startScanner = async () => {
+    try {
+      const html5QrCode = new Html5Qrcode("qr-reader")
+      scannerRef.current = html5QrCode
+
+      await html5QrCode.start(
+        { facingMode: "environment" },
+        {
+          fps: 10,
+          qrbox: { width: 250, height: 250 }
+        },
+        onScanSuccess,
+        onScanError
+      )
+    } catch (err) {
+      console.error("Failed to start scanner:", err)
+      alert("Failed to start camera. Please check camera permissions.")
+    }
+  }
+
+  const stopScanner = async () => {
+    if (scannerRef.current) {
+      try {
+        await scannerRef.current.stop()
+        scannerRef.current.clear()
+        scannerRef.current = null
+      } catch (err) {
+        console.error("Failed to stop scanner:", err)
+      }
+    }
+    setShowScannerModal(false)
+    setScannerItemIndex(null)
+  }
+
+  const onScanSuccess = (decodedText: string) => {
+    // Find product by barcode or SKU
+    const product = products.find(
+      (p) => p.barcode === decodedText || p.sku === decodedText
+    )
+
+    if (product && scannerItemIndex !== null) {
+      updateItem(scannerItemIndex, 'productId', product.id)
+
+      // Update search to show product name
+      const newSearch = [...productSearch]
+      newSearch[scannerItemIndex] = product.name
+      setProductSearch(newSearch)
+
+      // Auto-fill price with buy price if available
+      if (product.buyPrice) {
+        updateItem(scannerItemIndex, 'unitCost', product.buyPrice)
+      }
+
+      alert(`✅ Product found: ${product.name}`)
+      stopScanner()
+    } else {
+      alert(`❌ No product found with barcode/SKU: ${decodedText}`)
+    }
+  }
+
+  const onScanError = (error: any) => {
+    // Ignore common scanning errors
+    if (!error.includes("NotFoundException")) {
+      console.warn("Scan error:", error)
+    }
+  }
+
+  useEffect(() => {
+    if (showScannerModal) {
+      // Start scanner after modal is rendered
+      setTimeout(() => startScanner(), 100)
+    }
+    return () => {
+      if (scannerRef.current) {
+        stopScanner()
+      }
+    }
+  }, [showScannerModal])
 
   const handleExportPDF = async () => {
     try {
@@ -535,26 +627,71 @@ export default function StockInPage() {
                     </div>
                   ) : (
                     <div className="space-y-4">
-                      {items.map((item, index) => (
+                      {items.map((item, index) => {
+                        const filteredProducts = products.filter((p) =>
+                          productSearch[index]
+                            ? p.name.toLowerCase().includes(productSearch[index].toLowerCase()) ||
+                              p.sku.toLowerCase().includes(productSearch[index].toLowerCase()) ||
+                              (p.barcode && p.barcode.toLowerCase().includes(productSearch[index].toLowerCase()))
+                            : true
+                        )
+
+                        return (
                         <div key={index} className="card p-4">
                           <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
                             <div className="md:col-span-5">
                               <label className="block text-xs font-medium text-gray-700 mb-1">
                                 Product *
+                                <button
+                                  type="button"
+                                  onClick={() => openScanner(index)}
+                                  className="ml-2 text-blue-600 hover:text-blue-700 text-xs"
+                                  title="Scan barcode"
+                                >
+                                  📷 Scan
+                                </button>
                               </label>
+                              <input
+                                type="text"
+                                placeholder="Search by name, SKU, or barcode..."
+                                value={productSearch[index] || ''}
+                                onChange={(e) => {
+                                  const newSearch = [...productSearch]
+                                  newSearch[index] = e.target.value
+                                  setProductSearch(newSearch)
+                                }}
+                                className="input text-sm mb-2"
+                              />
                               <select
                                 required
                                 value={item.productId}
-                                onChange={(e) => updateItem(index, 'productId', e.target.value)}
+                                onChange={(e) => {
+                                  updateItem(index, 'productId', e.target.value)
+                                  const product = products.find(p => p.id === e.target.value)
+                                  if (product) {
+                                    const newSearch = [...productSearch]
+                                    newSearch[index] = product.name
+                                    setProductSearch(newSearch)
+                                    // Auto-fill price
+                                    if (product.buyPrice) {
+                                      updateItem(index, 'unitCost', product.buyPrice)
+                                    }
+                                  }
+                                }}
                                 className="select text-sm"
                               >
                                 <option value="">Select product...</option>
-                                {products.map((product) => (
+                                {filteredProducts.slice(0, 50).map((product) => (
                                   <option key={product.id} value={product.id}>
-                                    {product.name} ({product.sku})
+                                    {product.name} ({product.sku}) {product.barcode ? `- ${product.barcode}` : ''}
                                   </option>
                                 ))}
                               </select>
+                              {filteredProducts.length > 50 && (
+                                <p className="text-xs text-gray-500 mt-1">
+                                  Showing first 50 results. Refine your search for more.
+                                </p>
+                              )}
                             </div>
 
                             <div className="md:col-span-3">
@@ -611,7 +748,8 @@ export default function StockInPage() {
                             </div>
                           )}
                         </div>
-                      ))}
+                        )
+                      })}
                     </div>
                   )}
                 </div>
@@ -755,6 +893,48 @@ export default function StockInPage() {
                     Reject Stock In
                   </button>
                 </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Barcode Scanner Modal */}
+        {showScannerModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full">
+              <div className="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
+                <h2 className="text-2xl font-bold text-gray-900">Scan Barcode/QR Code</h2>
+                <button
+                  onClick={stopScanner}
+                  className="p-2 hover:bg-gray-100 rounded-lg transition"
+                >
+                  <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+
+              <div className="p-6">
+                <div className="mb-4">
+                  <p className="text-gray-700 mb-2">
+                    Point your camera at the barcode or QR code
+                  </p>
+                  <p className="text-sm text-gray-600">
+                    The product will be automatically selected when detected
+                  </p>
+                </div>
+
+                {/* Scanner container */}
+                <div className="relative w-full aspect-square bg-black rounded-lg overflow-hidden mb-4">
+                  <div id="qr-reader" className="w-full h-full"></div>
+                </div>
+
+                <button
+                  onClick={stopScanner}
+                  className="btn-secondary w-full"
+                >
+                  Cancel
+                </button>
               </div>
             </div>
           </div>
