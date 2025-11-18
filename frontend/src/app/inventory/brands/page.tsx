@@ -25,6 +25,8 @@ export default function BrandsPage() {
   const [editingBrand, setEditingBrand] = useState<Brand | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [searchTerm, setSearchTerm] = useState('')
+  const [useEmojiLogo, setUseEmojiLogo] = useState(true)
+  const [logoPreview, setLogoPreview] = useState<string | null>(null)
   const [formData, setFormData] = useState({
     name: '',
     nameTh: '',
@@ -73,13 +75,30 @@ export default function BrandsPage() {
     }
   }
 
+  const handleLogoImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (file) {
+      const reader = new FileReader()
+      reader.onloadend = () => {
+        setLogoPreview(reader.result as string)
+        setFormData({ ...formData, logo: reader.result as string })
+      }
+      reader.readAsDataURL(file)
+    }
+  }
+
   const handleEdit = (brand: Brand) => {
     setEditingBrand(brand)
+    const isEmoji = brand.logo && brand.logo.length <= 2
+    setUseEmojiLogo(isEmoji)
     setFormData({
       name: brand.name,
       nameTh: brand.nameTh || '',
       logo: brand.logo || '🏷️'
     })
+    if (!isEmoji && brand.logo) {
+      setLogoPreview(brand.logo)
+    }
     setShowModal(true)
   }
 
@@ -101,6 +120,8 @@ export default function BrandsPage() {
   const closeModal = () => {
     setShowModal(false)
     setEditingBrand(null)
+    setLogoPreview(null)
+    setUseEmojiLogo(true)
     setFormData({
       name: '',
       nameTh: '',
@@ -371,22 +392,109 @@ export default function BrandsPage() {
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       Logo/Icon
                     </label>
-                    <div className="grid grid-cols-6 gap-2">
-                      {logoOptions.map((logo) => (
-                        <button
-                          key={logo}
-                          type="button"
-                          onClick={() => setFormData({ ...formData, logo })}
-                          className={`p-3 text-2xl rounded-lg border-2 transition ${
-                            formData.logo === logo
-                              ? 'border-blue-500 bg-blue-50'
-                              : 'border-gray-200 hover:border-gray-300'
-                          }`}
-                        >
-                          {logo}
-                        </button>
-                      ))}
+
+                    {/* Toggle between Emoji and Image */}
+                    <div className="flex gap-2 mb-4">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setUseEmojiLogo(true)
+                          setLogoPreview(null)
+                          setFormData({ ...formData, logo: '🏷️' })
+                        }}
+                        className={`px-4 py-2 rounded-lg text-sm font-medium transition ${
+                          useEmojiLogo
+                            ? 'bg-blue-500 text-white'
+                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                        }`}
+                      >
+                        Use Emoji
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setUseEmojiLogo(false)
+                          setFormData({ ...formData, logo: '' })
+                        }}
+                        className={`px-4 py-2 rounded-lg text-sm font-medium transition ${
+                          !useEmojiLogo
+                            ? 'bg-blue-500 text-white'
+                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                        }`}
+                      >
+                        Upload Image
+                      </button>
                     </div>
+
+                    {useEmojiLogo ? (
+                      <div className="grid grid-cols-6 gap-2">
+                        {logoOptions.map((logo) => (
+                          <button
+                            key={logo}
+                            type="button"
+                            onClick={() => setFormData({ ...formData, logo })}
+                            className={`p-3 text-2xl rounded-lg border-2 transition ${
+                              formData.logo === logo
+                                ? 'border-blue-500 bg-blue-50'
+                                : 'border-gray-200 hover:border-gray-300'
+                            }`}
+                          >
+                            {logo}
+                          </button>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-4">
+                        {logoPreview ? (
+                          <div className="relative">
+                            <img
+                              src={logoPreview}
+                              alt="Logo preview"
+                              className="w-24 h-24 object-cover rounded-lg border-2 border-gray-200"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setLogoPreview(null)
+                                setFormData({ ...formData, logo: '' })
+                              }}
+                              className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600 transition"
+                            >
+                              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                              </svg>
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="w-24 h-24 border-2 border-dashed border-gray-300 rounded-lg flex items-center justify-center bg-gray-50">
+                            <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                            </svg>
+                          </div>
+                        )}
+                        <div className="flex-1">
+                          <input
+                            type="file"
+                            accept="image/*"
+                            onChange={handleLogoImageChange}
+                            className="hidden"
+                            id="brand-logo"
+                          />
+                          <label
+                            htmlFor="brand-logo"
+                            className="btn-secondary cursor-pointer inline-flex items-center gap-2 text-sm"
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                            </svg>
+                            Upload Logo
+                          </label>
+                          <p className="text-xs text-gray-500 mt-2">
+                            PNG, JPG up to 2MB
+                          </p>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
 
