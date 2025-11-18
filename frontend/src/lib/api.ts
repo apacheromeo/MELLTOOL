@@ -360,9 +360,13 @@ class ApiClient {
   }
 
   // Stock-in endpoints
-  async getStockIns(params?: { page?: number; limit?: number; status?: string }) {
+  async getStockIns(params?: { page?: number; limit?: number; status?: string; approvalStatus?: string }) {
     const query = new URLSearchParams(params as any).toString();
     return this.request(`/stock-in?${query}`);
+  }
+
+  async getPendingApprovals() {
+    return this.request('/stock-in/approvals/pending');
   }
 
   async createStockIn(data: any) {
@@ -375,6 +379,19 @@ class ApiClient {
   async receiveStockIn(id: string) {
     return this.request(`/stock-in/${id}/receive`, {
       method: 'POST',
+    });
+  }
+
+  async approveStockIn(id: string) {
+    return this.request(`/stock-in/${id}/approve`, {
+      method: 'POST',
+    });
+  }
+
+  async rejectStockIn(id: string, rejectionReason?: string) {
+    return this.request(`/stock-in/${id}/reject`, {
+      method: 'POST',
+      body: JSON.stringify({ rejectionReason }),
     });
   }
 
