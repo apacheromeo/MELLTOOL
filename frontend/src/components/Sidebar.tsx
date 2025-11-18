@@ -210,10 +210,10 @@ export default function Sidebar() {
 
   return (
     <>
-      {/* Mobile Menu Toggle Button */}
+      {/* Mobile Menu Toggle Button - Floating Bottom Right */}
       <button
         onClick={() => setIsMobileOpen(!isMobileOpen)}
-        className="md:hidden fixed top-4 left-4 z-50 p-4 rounded-2xl bg-gradient-to-br from-blue-500 to-purple-600 text-white shadow-2xl hover:shadow-xl hover:scale-105 transition-all duration-200 touch-manipulation"
+        className="md:hidden fixed bottom-6 right-6 z-50 p-4 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 text-white shadow-2xl hover:shadow-xl hover:scale-105 active:scale-95 transition-all duration-200 touch-manipulation"
         aria-label={isMobileOpen ? 'Close menu' : 'Open menu'}
       >
         <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}>
