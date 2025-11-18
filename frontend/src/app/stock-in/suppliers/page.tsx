@@ -427,7 +427,7 @@ export default function SuppliersPage() {
                             </svg>
                           </button>
                           <button
-                            onClick={() => router.push(`/stock-in/new?supplier=${supplier.id}`)}
+                            onClick={() => router.push(`/stock-in?supplier=${supplier.id}`)}
                             className="p-2 hover:bg-green-50 rounded-lg transition"
                             title="Create Order"
                           >

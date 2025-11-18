@@ -198,7 +198,7 @@ export default function PurchaseOrdersPage() {
             <p className="text-sm text-gray-500">สร้างและจัดการใบสั่งซื้อไปยังซัพพลายเออร์</p>
           </div>
           <button
-            onClick={() => router.push('/stock-in/new')}
+            onClick={() => router.push('/stock-in')}
             className="btn-primary flex items-center gap-2"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -382,7 +382,7 @@ export default function PurchaseOrdersPage() {
             </p>
             {!searchTerm && filterStatus === 'all' && (
               <button
-                onClick={() => router.push('/stock-in/new')}
+                onClick={() => router.push('/stock-in')}
                 className="btn-primary inline-flex items-center gap-2"
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
