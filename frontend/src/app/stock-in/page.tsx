@@ -36,12 +36,24 @@ export default function StockInPage() {
   const [showScannerModal, setShowScannerModal] = useState(false)
   const [scannerItemIndex, setScannerItemIndex] = useState<number | null>(null)
   const [productSearch, setProductSearch] = useState<string[]>([])
+
+  // New: Filter and autocomplete states
+  const [brands, setBrands] = useState<any[]>([])
+  const [categories, setCategories] = useState<any[]>([])
+  const [selectedBrand, setSelectedBrand] = useState<string>('')
+  const [selectedCategory, setSelectedCategory] = useState<string>('')
+  const [searchResults, setSearchResults] = useState<any[][]>([])
+  const [showSearchResults, setShowSearchResults] = useState<boolean[]>([])
+  const searchTimeoutRefs = useRef<(NodeJS.Timeout | null)[]>([])
+
   const scannerRef = useRef<Html5Qrcode | null>(null)
   const router = useRouter()
 
   useEffect(() => {
     loadStockIns()
     loadProducts()
+    loadBrands()
+    loadCategories()
     loadUserProfile()
     loadPendingApprovals()
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -82,10 +94,89 @@ export default function StockInPage() {
 
   const loadProducts = async () => {
     try {
-      const data = await api.getProducts({ limit: 1000 })
+      const params: any = { limit: 1000 }
+      if (selectedBrand) params.brand = selectedBrand
+      if (selectedCategory) params.category = selectedCategory
+
+      const data = await api.getProducts(params)
       setProducts(data.products || [])
     } catch (err) {
       console.error('Failed to load products:', err)
+    }
+  }
+
+  const loadBrands = async () => {
+    try {
+      const data = await api.getBrands()
+      setBrands(data.filter((b: any) => b.isActive))
+    } catch (err) {
+      console.error('Failed to load brands:', err)
+    }
+  }
+
+  const loadCategories = async () => {
+    try {
+      const data = await api.getCategories()
+      setCategories(data.filter((c: any) => c.isActive))
+    } catch (err) {
+      console.error('Failed to load categories:', err)
+    }
+  }
+
+  // Autocomplete search handler
+  const handleSearchChange = async (index: number, query: string) => {
+    const newSearch = [...productSearch]
+    newSearch[index] = query
+    setProductSearch(newSearch)
+
+    // Clear previous timeout
+    if (searchTimeoutRefs.current[index]) {
+      clearTimeout(searchTimeoutRefs.current[index]!)
+    }
+
+    if (query.length < 2) {
+      const newResults = [...searchResults]
+      newResults[index] = []
+      setSearchResults(newResults)
+
+      const newShow = [...showSearchResults]
+      newShow[index] = false
+      setShowSearchResults(newShow)
+      return
+    }
+
+    searchTimeoutRefs.current[index] = setTimeout(async () => {
+      try {
+        const results = await api.posAutocomplete(query)
+
+        const newResults = [...searchResults]
+        newResults[index] = results
+        setSearchResults(newResults)
+
+        const newShow = [...showSearchResults]
+        newShow[index] = true
+        setShowSearchResults(newShow)
+      } catch (err) {
+        console.error('Search failed:', err)
+      }
+    }, 300)
+  }
+
+  // Handle product selection from autocomplete
+  const handleProductSelect = (index: number, product: any) => {
+    updateItem(index, 'productId', product.id)
+
+    const newSearch = [...productSearch]
+    newSearch[index] = product.name
+    setProductSearch(newSearch)
+
+    const newShow = [...showSearchResults]
+    newShow[index] = false
+    setShowSearchResults(newShow)
+
+    // Auto-fill cost price
+    if (product.costPrice) {
+      updateItem(index, 'unitCost', product.costPrice)
     }
   }
 
@@ -183,11 +274,15 @@ export default function StockInPage() {
   const addItem = () => {
     setItems([...items, { productId: '', quantity: 1, unitCost: 0 }])
     setProductSearch([...productSearch, ''])
+    setSearchResults([...searchResults, []])
+    setShowSearchResults([...showSearchResults, false])
   }
 
   const removeItem = (index: number) => {
     setItems(items.filter((_, i) => i !== index))
     setProductSearch(productSearch.filter((_, i) => i !== index))
+    setSearchResults(searchResults.filter((_, i) => i !== index))
+    setShowSearchResults(showSearchResults.filter((_, i) => i !== index))
   }
 
   const updateItem = (index: number, field: keyof StockInItem, value: any) => {
@@ -237,6 +332,10 @@ export default function StockInPage() {
     setShowModal(false)
     setItems([])
     setProductSearch([])
+    setSearchResults([])
+    setShowSearchResults([])
+    setSelectedBrand('')
+    setSelectedCategory('')
     setFormData({
       reference: `SI-${Date.now()}`,
       supplier: '',
@@ -611,6 +710,87 @@ export default function StockInPage() {
                     </button>
                   </div>
 
+                  {/* Brand and Category Filters */}
+                  <div className="mb-4 space-y-3">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Filter by Brand
+                      </label>
+                      <div className="flex flex-wrap gap-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSelectedBrand('')
+                            loadProducts()
+                          }}
+                          className={`px-4 py-2 rounded-lg text-sm font-medium transition ${
+                            selectedBrand === ''
+                              ? 'bg-blue-600 text-white'
+                              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                          }`}
+                        >
+                          All Brands
+                        </button>
+                        {brands.map((brand) => (
+                          <button
+                            key={brand.id}
+                            type="button"
+                            onClick={() => {
+                              setSelectedBrand(brand.id)
+                              loadProducts()
+                            }}
+                            className={`px-4 py-2 rounded-lg text-sm font-medium transition ${
+                              selectedBrand === brand.id
+                                ? 'bg-blue-600 text-white'
+                                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                            }`}
+                          >
+                            {brand.name}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Filter by Category
+                      </label>
+                      <div className="flex flex-wrap gap-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSelectedCategory('')
+                            loadProducts()
+                          }}
+                          className={`px-4 py-2 rounded-lg text-sm font-medium transition ${
+                            selectedCategory === ''
+                              ? 'bg-green-600 text-white'
+                              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                          }`}
+                        >
+                          All Categories
+                        </button>
+                        {categories.map((category) => (
+                          <button
+                            key={category.id}
+                            type="button"
+                            onClick={() => {
+                              setSelectedCategory(category.id)
+                              loadProducts()
+                            }}
+                            className={`px-4 py-2 rounded-lg text-sm font-medium transition ${
+                              selectedCategory === category.id
+                                ? 'bg-green-600 text-white'
+                                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                            }`}
+                          >
+                            {category.name}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
                   {items.length === 0 ? (
                     <div className="text-center py-12 bg-gray-50 border-2 border-dashed border-gray-300 rounded-lg">
                       <p className="text-gray-600 mb-4">No items added yet</p>
@@ -639,7 +819,7 @@ export default function StockInPage() {
                         return (
                         <div key={index} className="card p-4">
                           <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
-                            <div className="md:col-span-5">
+                            <div className="md:col-span-5 relative">
                               <label className="block text-xs font-medium text-gray-700 mb-1">
                                 Product *
                                 <button
@@ -651,46 +831,97 @@ export default function StockInPage() {
                                   📷 Scan
                                 </button>
                               </label>
+
+                              {/* Autocomplete Search Input */}
+                              <div className="relative">
+                                <input
+                                  type="text"
+                                  placeholder="🔍 Type to search products..."
+                                  value={productSearch[index] || ''}
+                                  onChange={(e) => handleSearchChange(index, e.target.value)}
+                                  className="input text-sm mb-2 border-2 border-blue-200 focus:border-blue-500"
+                                />
+                                {productSearch[index] && (
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      const newSearch = [...productSearch]
+                                      newSearch[index] = ''
+                                      setProductSearch(newSearch)
+
+                                      const newShow = [...showSearchResults]
+                                      newShow[index] = false
+                                      setShowSearchResults(newShow)
+                                    }}
+                                    className="absolute right-3 top-2 text-gray-400 hover:text-gray-600"
+                                  >
+                                    ✕
+                                  </button>
+                                )}
+
+                                {/* Autocomplete Results Dropdown */}
+                                {showSearchResults[index] && searchResults[index] && searchResults[index].length > 0 && (
+                                  <div className="absolute z-50 w-full bg-white rounded-lg shadow-2xl border-2 border-blue-200 max-h-72 overflow-y-auto">
+                                    {searchResults[index].map((product: any) => (
+                                      <button
+                                        key={product.id}
+                                        type="button"
+                                        onClick={() => handleProductSelect(index, product)}
+                                        className="w-full p-3 hover:bg-blue-50 transition-colors flex items-center gap-3 border-b border-gray-100 last:border-b-0 text-left"
+                                      >
+                                        {/* Product Image */}
+                                        <div className="w-12 h-12 rounded-lg bg-gray-100 flex-shrink-0 flex items-center justify-center overflow-hidden">
+                                          {product.imageUrl ? (
+                                            <img
+                                              src={product.imageUrl.startsWith('http') ? product.imageUrl : `https://melltool-backend.fly.dev${product.imageUrl}`}
+                                              alt={product.name}
+                                              className="w-full h-full object-cover"
+                                            />
+                                          ) : (
+                                            <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                                            </svg>
+                                          )}
+                                        </div>
+
+                                        {/* Product Info */}
+                                        <div className="flex-1 min-w-0">
+                                          <h4 className="font-semibold text-gray-900 text-sm truncate">{product.name}</h4>
+                                          <p className="text-xs text-gray-600">{product.sku}</p>
+                                          <div className="flex items-center gap-2 mt-1">
+                                            <span className="text-xs font-medium text-blue-600">฿{product.costPrice?.toLocaleString() || 'N/A'}</span>
+                                            <span className={`text-xs px-2 py-0.5 rounded-full ${product.stockQty > 0 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                                              Stock: {product.stockQty}
+                                            </span>
+                                          </div>
+                                        </div>
+
+                                        {/* Add Icon */}
+                                        <div className="flex-shrink-0">
+                                          <div className="w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center">
+                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                                            </svg>
+                                          </div>
+                                        </div>
+                                      </button>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+
+                              {/* Fallback Select (hidden field for form validation) */}
                               <input
-                                type="text"
-                                placeholder="Search by name, SKU, or barcode..."
-                                value={productSearch[index] || ''}
-                                onChange={(e) => {
-                                  const newSearch = [...productSearch]
-                                  newSearch[index] = e.target.value
-                                  setProductSearch(newSearch)
-                                }}
-                                className="input text-sm mb-2"
-                              />
-                              <select
+                                type="hidden"
                                 required
                                 value={item.productId}
-                                onChange={(e) => {
-                                  updateItem(index, 'productId', e.target.value)
-                                  const product = products.find(p => p.id === e.target.value)
-                                  if (product) {
-                                    const newSearch = [...productSearch]
-                                    newSearch[index] = product.name
-                                    setProductSearch(newSearch)
-                                    // Auto-fill price
-                                    if (product.buyPrice) {
-                                      updateItem(index, 'unitCost', product.buyPrice)
-                                    }
-                                  }
-                                }}
-                                className="select text-sm"
-                              >
-                                <option value="">Select product...</option>
-                                {filteredProducts.slice(0, 50).map((product) => (
-                                  <option key={product.id} value={product.id}>
-                                    {product.name} ({product.sku}) {product.barcode ? `- ${product.barcode}` : ''}
-                                  </option>
-                                ))}
-                              </select>
-                              {filteredProducts.length > 50 && (
-                                <p className="text-xs text-gray-500 mt-1">
-                                  Showing first 50 results. Refine your search for more.
-                                </p>
+                              />
+
+                              {/* Selected Product Display */}
+                              {item.productId && (
+                                <div className="text-xs text-gray-600 bg-green-50 border border-green-200 rounded p-2 mb-2">
+                                  ✓ Selected: {products.find(p => p.id === item.productId)?.name || 'Product'}
+                                </div>
                               )}
                             </div>
 
