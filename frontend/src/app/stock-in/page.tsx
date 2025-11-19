@@ -59,6 +59,14 @@ export default function StockInPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  // Reload products when filters change
+  useEffect(() => {
+    if (showProductSelector) {
+      loadProducts()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedBrand, selectedCategory, showProductSelector])
+
   const loadStockIns = async () => {
     try {
       setLoading(true)
@@ -98,10 +106,19 @@ export default function StockInPage() {
       if (selectedBrand) params.brand = selectedBrand
       if (selectedCategory) params.category = selectedCategory
 
+      console.log('📦 Loading products with params:', params)
       const data = await api.getProducts(params)
+      console.log('✅ Products loaded:', data.products?.length || 0, 'products')
+      console.log('Sample product:', data.products?.[0])
       setProducts(data.products || [])
-    } catch (err) {
-      console.error('Failed to load products:', err)
+
+      if (!data.products || data.products.length === 0) {
+        console.warn('⚠️ No products returned from API')
+      }
+    } catch (err: any) {
+      console.error('❌ Failed to load products:', err)
+      console.error('Error details:', err.message)
+      setProducts([])
     }
   }
 
@@ -149,13 +166,16 @@ export default function StockInPage() {
   // Get filtered products based on selected filters and search
   const getFilteredProducts = () => {
     let filtered = products
+    console.log('🔍 Filtering from', products.length, 'total products')
 
     if (selectedBrand) {
       filtered = filtered.filter(p => p.brandId === selectedBrand)
+      console.log('  → After brand filter:', filtered.length, 'products')
     }
 
     if (selectedCategory) {
       filtered = filtered.filter(p => p.categoryId === selectedCategory)
+      console.log('  → After category filter:', filtered.length, 'products')
     }
 
     if (searchQuery.trim()) {
@@ -165,6 +185,8 @@ export default function StockInPage() {
         .replace(/[\/\-_.,()]/g, ' ') // Replace special chars with spaces
         .split(/\s+/) // Split by whitespace
         .filter(term => term.length > 0) // Remove empty strings
+
+      console.log('  → Search terms:', searchTerms)
 
       filtered = filtered.filter(p => {
         // Combine all searchable fields
@@ -178,8 +200,16 @@ export default function StockInPage() {
         ].join(' ').toLowerCase().replace(/[\/\-_.,()]/g, ' ')
 
         // Match if ANY search term appears in the searchable text
-        return searchTerms.some(term => searchableText.includes(term))
+        const matches = searchTerms.some(term => searchableText.includes(term))
+
+        if (matches) {
+          console.log('  ✓ Match:', p.name, '| SKU:', p.sku)
+        }
+
+        return matches
       })
+
+      console.log('  → After search filter:', filtered.length, 'products')
 
       // Sort results: exact matches first, then partial matches
       const queryLower = searchQuery.toLowerCase()
@@ -202,6 +232,7 @@ export default function StockInPage() {
       })
     }
 
+    console.log('🎯 Final filtered count:', filtered.length)
     return filtered
   }
 
@@ -718,7 +749,15 @@ export default function StockInPage() {
                     </h3>
                     <button
                       type="button"
-                      onClick={() => setShowProductSelector(!showProductSelector)}
+                      onClick={() => {
+                        if (!showProductSelector) {
+                          // Reset filters when opening selector
+                          setSearchQuery('')
+                          setSelectedBrand('')
+                          setSelectedCategory('')
+                        }
+                        setShowProductSelector(!showProductSelector)
+                      }}
                       className="btn-primary flex items-center gap-2"
                     >
                       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -740,6 +779,36 @@ export default function StockInPage() {
                           onChange={(e) => setSearchQuery(e.target.value)}
                           className="input w-full text-lg border-2 border-blue-300 focus:border-blue-500"
                         />
+
+                        {/* Search Status */}
+                        <div className="flex items-center justify-between mt-2 text-sm">
+                          <div className="text-gray-600">
+                            {searchQuery ? (
+                              <span className="font-medium">
+                                🔍 Found {getFilteredProducts().length} products matching "{searchQuery}"
+                              </span>
+                            ) : (
+                              <span>
+                                📦 {products.length} total products loaded
+                                {(selectedBrand || selectedCategory) && ` • Filters active`}
+                              </span>
+                            )}
+                          </div>
+                          {(searchQuery || selectedBrand || selectedCategory) && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setSearchQuery('')
+                                setSelectedBrand('')
+                                setSelectedCategory('')
+                              }}
+                              className="text-blue-600 hover:text-blue-700 font-medium"
+                            >
+                              Clear all
+                            </button>
+                          )}
+                        </div>
+
                         {searchQuery && (
                           <p className="text-xs text-gray-600 mt-1">
                             💡 Tip: Search works with partial words. Try "autobot" or "storm" or "1/2/3/4"
@@ -753,7 +822,10 @@ export default function StockInPage() {
                         <div className="flex flex-wrap gap-2">
                           <button
                             type="button"
-                            onClick={() => setSelectedBrand('')}
+                            onClick={() => {
+                              console.log('🔄 Clearing brand filter')
+                              setSelectedBrand('')
+                            }}
                             className={`px-4 py-2 rounded-lg font-medium transition ${selectedBrand === '' ? 'bg-blue-600 text-white' : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-300'}`}
                           >
                             All
@@ -762,7 +834,10 @@ export default function StockInPage() {
                             <button
                               key={brand.id}
                               type="button"
-                              onClick={() => setSelectedBrand(brand.id)}
+                              onClick={() => {
+                                console.log('🔄 Filtering by brand:', brand.name)
+                                setSelectedBrand(brand.id)
+                              }}
                               className={`px-4 py-2 rounded-lg font-medium transition ${selectedBrand === brand.id ? 'bg-blue-600 text-white' : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-300'}`}
                             >
                               {brand.name}
@@ -777,7 +852,10 @@ export default function StockInPage() {
                         <div className="flex flex-wrap gap-2">
                           <button
                             type="button"
-                            onClick={() => setSelectedCategory('')}
+                            onClick={() => {
+                              console.log('🔄 Clearing category filter')
+                              setSelectedCategory('')
+                            }}
                             className={`px-4 py-2 rounded-lg font-medium transition ${selectedCategory === '' ? 'bg-green-600 text-white' : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-300'}`}
                           >
                             All
@@ -786,7 +864,10 @@ export default function StockInPage() {
                             <button
                               key={category.id}
                               type="button"
-                              onClick={() => setSelectedCategory(category.id)}
+                              onClick={() => {
+                                console.log('🔄 Filtering by category:', category.name)
+                                setSelectedCategory(category.id)
+                              }}
                               className={`px-4 py-2 rounded-lg font-medium transition ${selectedCategory === category.id ? 'bg-green-600 text-white' : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-300'}`}
                             >
                               {category.name}
