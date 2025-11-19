@@ -159,12 +159,47 @@ export default function StockInPage() {
     }
 
     if (searchQuery.trim()) {
-      const query = searchQuery.toLowerCase()
-      filtered = filtered.filter(p =>
-        p.name.toLowerCase().includes(query) ||
-        p.sku.toLowerCase().includes(query) ||
-        (p.barcode && p.barcode.toLowerCase().includes(query))
-      )
+      // Improved search: split query into words and match any word
+      const searchTerms = searchQuery
+        .toLowerCase()
+        .replace(/[\/\-_.,()]/g, ' ') // Replace special chars with spaces
+        .split(/\s+/) // Split by whitespace
+        .filter(term => term.length > 0) // Remove empty strings
+
+      filtered = filtered.filter(p => {
+        // Combine all searchable fields
+        const searchableText = [
+          p.name,
+          p.nameTh || '',
+          p.sku,
+          p.barcode || '',
+          p.category?.name || '',
+          p.brand?.name || ''
+        ].join(' ').toLowerCase().replace(/[\/\-_.,()]/g, ' ')
+
+        // Match if ANY search term appears in the searchable text
+        return searchTerms.some(term => searchableText.includes(term))
+      })
+
+      // Sort results: exact matches first, then partial matches
+      const queryLower = searchQuery.toLowerCase()
+      filtered.sort((a, b) => {
+        const aNameLower = a.name.toLowerCase()
+        const bNameLower = b.name.toLowerCase()
+
+        // Exact match in name comes first
+        const aExact = aNameLower === queryLower ? 0 : 1
+        const bExact = bNameLower === queryLower ? 0 : 1
+        if (aExact !== bExact) return aExact - bExact
+
+        // Starts with query comes next
+        const aStarts = aNameLower.startsWith(queryLower) ? 0 : 1
+        const bStarts = bNameLower.startsWith(queryLower) ? 0 : 1
+        if (aStarts !== bStarts) return aStarts - bStarts
+
+        // Alphabetical as fallback
+        return aNameLower.localeCompare(bNameLower)
+      })
     }
 
     return filtered
@@ -700,11 +735,16 @@ export default function StockInPage() {
                       <div className="mb-4">
                         <input
                           type="text"
-                          placeholder="🔍 Search products by name, SKU, or barcode..."
+                          placeholder="🔍 Search: type any part of name, SKU, barcode... (e.g., 'autobot', 'lazer', 'storm')"
                           value={searchQuery}
                           onChange={(e) => setSearchQuery(e.target.value)}
                           className="input w-full text-lg border-2 border-blue-300 focus:border-blue-500"
                         />
+                        {searchQuery && (
+                          <p className="text-xs text-gray-600 mt-1">
+                            💡 Tip: Search works with partial words. Try "autobot" or "storm" or "1/2/3/4"
+                          </p>
+                        )}
                       </div>
 
                       {/* Brand Filter */}
@@ -757,7 +797,7 @@ export default function StockInPage() {
 
                       {/* Product Grid */}
                       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 max-h-96 overflow-y-auto p-2">
-                        {getFilteredProducts().slice(0, 50).map((product) => (
+                        {getFilteredProducts().slice(0, 200).map((product) => (
                           <button
                             key={product.id}
                             type="button"
@@ -794,9 +834,15 @@ export default function StockInPage() {
                         ))}
                       </div>
 
-                      {getFilteredProducts().length > 50 && (
+                      {getFilteredProducts().length > 200 && (
                         <p className="text-sm text-gray-600 mt-3 text-center">
-                          Showing first 50 of {getFilteredProducts().length} products. Use filters or search to narrow down.
+                          Showing first 200 of {getFilteredProducts().length} products. Use search to narrow down results.
+                        </p>
+                      )}
+
+                      {getFilteredProducts().length > 0 && getFilteredProducts().length <= 200 && (
+                        <p className="text-sm text-green-600 mt-3 text-center font-medium">
+                          ✓ Showing all {getFilteredProducts().length} matching products
                         </p>
                       )}
 
