@@ -718,7 +718,15 @@ export default function StockInPage() {
                     </h3>
                     <button
                       type="button"
-                      onClick={() => setShowProductSelector(!showProductSelector)}
+                      onClick={() => {
+                        if (!showProductSelector) {
+                          // Reset filters when opening selector
+                          setSearchQuery('')
+                          setSelectedBrand('')
+                          setSelectedCategory('')
+                        }
+                        setShowProductSelector(!showProductSelector)
+                      }}
                       className="btn-primary flex items-center gap-2"
                     >
                       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -740,6 +748,36 @@ export default function StockInPage() {
                           onChange={(e) => setSearchQuery(e.target.value)}
                           className="input w-full text-lg border-2 border-blue-300 focus:border-blue-500"
                         />
+
+                        {/* Search Status */}
+                        <div className="flex items-center justify-between mt-2 text-sm">
+                          <div className="text-gray-600">
+                            {searchQuery ? (
+                              <span className="font-medium">
+                                🔍 Found {getFilteredProducts().length} products matching "{searchQuery}"
+                              </span>
+                            ) : (
+                              <span>
+                                📦 {products.length} total products loaded
+                                {(selectedBrand || selectedCategory) && ` • Filters active`}
+                              </span>
+                            )}
+                          </div>
+                          {(searchQuery || selectedBrand || selectedCategory) && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setSearchQuery('')
+                                setSelectedBrand('')
+                                setSelectedCategory('')
+                              }}
+                              className="text-blue-600 hover:text-blue-700 font-medium"
+                            >
+                              Clear all
+                            </button>
+                          )}
+                        </div>
+
                         {searchQuery && (
                           <p className="text-xs text-gray-600 mt-1">
                             💡 Tip: Search works with partial words. Try "autobot" or "storm" or "1/2/3/4"
