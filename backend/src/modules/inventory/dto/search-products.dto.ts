@@ -23,7 +23,7 @@ export class SearchProductsDto {
   @Transform(({ value }) => parseInt(value))
   @IsNumber()
   @Min(1)
-  @Max(100)
+  @Max(2000) // Increased for stock-in/POS use cases
   limit?: number = 10;
 
   @ApiProperty({
