@@ -42,9 +42,9 @@ export default function StockInPage() {
   const [categories, setCategories] = useState<any[]>([])
   const [selectedBrand, setSelectedBrand] = useState<string>('')
   const [selectedCategory, setSelectedCategory] = useState<string>('')
-  const [searchResults, setSearchResults] = useState<any[][]>([])
-  const [showSearchResults, setShowSearchResults] = useState<boolean[]>([])
-  const searchTimeoutRefs = useRef<(NodeJS.Timeout | null)[]>([])
+  const [searchQuery, setSearchQuery] = useState('')
+  const [showProductSelector, setShowProductSelector] = useState(false)
+  const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
   const scannerRef = useRef<Html5Qrcode | null>(null)
   const router = useRouter()
@@ -123,61 +123,51 @@ export default function StockInPage() {
     }
   }
 
-  // Autocomplete search handler
-  const handleSearchChange = async (index: number, query: string) => {
-    const newSearch = [...productSearch]
-    newSearch[index] = query
-    setProductSearch(newSearch)
+  // Add product from grid view
+  const handleAddProductFromGrid = (product: any) => {
+    // Check if product already exists in items
+    const existingIndex = items.findIndex(item => item.productId === product.id)
 
-    // Clear previous timeout
-    if (searchTimeoutRefs.current[index]) {
-      clearTimeout(searchTimeoutRefs.current[index]!)
-    }
-
-    if (query.length < 2) {
-      const newResults = [...searchResults]
-      newResults[index] = []
-      setSearchResults(newResults)
-
-      const newShow = [...showSearchResults]
-      newShow[index] = false
-      setShowSearchResults(newShow)
-      return
-    }
-
-    searchTimeoutRefs.current[index] = setTimeout(async () => {
-      try {
-        const results = await api.posAutocomplete(query)
-
-        const newResults = [...searchResults]
-        newResults[index] = results
-        setSearchResults(newResults)
-
-        const newShow = [...showSearchResults]
-        newShow[index] = true
-        setShowSearchResults(newShow)
-      } catch (err) {
-        console.error('Search failed:', err)
+    if (existingIndex >= 0) {
+      // Increment quantity if already exists
+      const newItems = [...items]
+      newItems[existingIndex].quantity += 1
+      setItems(newItems)
+      alert(`✓ Increased quantity of ${product.name}`)
+    } else {
+      // Add new item
+      const newItem: StockInItem = {
+        productId: product.id,
+        quantity: 1,
+        unitCost: product.costPrice || 0
       }
-    }, 300)
+      setItems([...items, newItem])
+      setProductSearch([...productSearch, product.name])
+    }
   }
 
-  // Handle product selection from autocomplete
-  const handleProductSelect = (index: number, product: any) => {
-    updateItem(index, 'productId', product.id)
+  // Get filtered products based on selected filters and search
+  const getFilteredProducts = () => {
+    let filtered = products
 
-    const newSearch = [...productSearch]
-    newSearch[index] = product.name
-    setProductSearch(newSearch)
-
-    const newShow = [...showSearchResults]
-    newShow[index] = false
-    setShowSearchResults(newShow)
-
-    // Auto-fill cost price
-    if (product.costPrice) {
-      updateItem(index, 'unitCost', product.costPrice)
+    if (selectedBrand) {
+      filtered = filtered.filter(p => p.brandId === selectedBrand)
     }
+
+    if (selectedCategory) {
+      filtered = filtered.filter(p => p.categoryId === selectedCategory)
+    }
+
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase()
+      filtered = filtered.filter(p =>
+        p.name.toLowerCase().includes(query) ||
+        p.sku.toLowerCase().includes(query) ||
+        (p.barcode && p.barcode.toLowerCase().includes(query))
+      )
+    }
+
+    return filtered
   }
 
   const loadUserProfile = async () => {
@@ -271,18 +261,9 @@ export default function StockInPage() {
     }
   }
 
-  const addItem = () => {
-    setItems([...items, { productId: '', quantity: 1, unitCost: 0 }])
-    setProductSearch([...productSearch, ''])
-    setSearchResults([...searchResults, []])
-    setShowSearchResults([...showSearchResults, false])
-  }
-
   const removeItem = (index: number) => {
     setItems(items.filter((_, i) => i !== index))
     setProductSearch(productSearch.filter((_, i) => i !== index))
-    setSearchResults(searchResults.filter((_, i) => i !== index))
-    setShowSearchResults(showSearchResults.filter((_, i) => i !== index))
   }
 
   const updateItem = (index: number, field: keyof StockInItem, value: any) => {
@@ -332,10 +313,10 @@ export default function StockInPage() {
     setShowModal(false)
     setItems([])
     setProductSearch([])
-    setSearchResults([])
-    setShowSearchResults([])
     setSelectedBrand('')
     setSelectedCategory('')
+    setSearchQuery('')
+    setShowProductSelector(false)
     setFormData({
       reference: `SI-${Date.now()}`,
       supplier: '',
@@ -697,288 +678,222 @@ export default function StockInPage() {
                 {/* Items */}
                 <div className="mb-6">
                   <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-lg font-semibold text-gray-900">Items</h3>
+                    <h3 className="text-lg font-semibold text-gray-900">
+                      Items ({items.length})
+                    </h3>
                     <button
                       type="button"
-                      onClick={addItem}
-                      className="btn-secondary flex items-center gap-2"
+                      onClick={() => setShowProductSelector(!showProductSelector)}
+                      className="btn-primary flex items-center gap-2"
                     >
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                       </svg>
-                      Add Item
+                      {showProductSelector ? 'Hide Products' : 'Add Products'}
                     </button>
                   </div>
 
-                  {/* Brand and Category Filters */}
-                  <div className="mb-4 space-y-3">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Filter by Brand
-                      </label>
-                      <div className="flex flex-wrap gap-2">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setSelectedBrand('')
-                            loadProducts()
-                          }}
-                          className={`px-4 py-2 rounded-lg text-sm font-medium transition ${
-                            selectedBrand === ''
-                              ? 'bg-blue-600 text-white'
-                              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                          }`}
-                        >
-                          All Brands
-                        </button>
-                        {brands.map((brand) => (
-                          <button
-                            key={brand.id}
-                            type="button"
-                            onClick={() => {
-                              setSelectedBrand(brand.id)
-                              loadProducts()
-                            }}
-                            className={`px-4 py-2 rounded-lg text-sm font-medium transition ${
-                              selectedBrand === brand.id
-                                ? 'bg-blue-600 text-white'
-                                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                            }`}
-                          >
-                            {brand.name}
-                          </button>
-                        ))}
+                  {/* Product Selector - POS Style */}
+                  {showProductSelector && (
+                    <div className="mb-6 border-2 border-blue-200 rounded-xl p-4 bg-blue-50">
+                      {/* Search Bar */}
+                      <div className="mb-4">
+                        <input
+                          type="text"
+                          placeholder="🔍 Search products by name, SKU, or barcode..."
+                          value={searchQuery}
+                          onChange={(e) => setSearchQuery(e.target.value)}
+                          className="input w-full text-lg border-2 border-blue-300 focus:border-blue-500"
+                        />
                       </div>
-                    </div>
 
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Filter by Category
-                      </label>
-                      <div className="flex flex-wrap gap-2">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setSelectedCategory('')
-                            loadProducts()
-                          }}
-                          className={`px-4 py-2 rounded-lg text-sm font-medium transition ${
-                            selectedCategory === ''
-                              ? 'bg-green-600 text-white'
-                              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                          }`}
-                        >
-                          All Categories
-                        </button>
-                        {categories.map((category) => (
+                      {/* Brand Filter */}
+                      <div className="mb-4">
+                        <label className="block text-sm font-semibold text-gray-700 mb-2">Brand</label>
+                        <div className="flex flex-wrap gap-2">
                           <button
-                            key={category.id}
                             type="button"
-                            onClick={() => {
-                              setSelectedCategory(category.id)
-                              loadProducts()
-                            }}
-                            className={`px-4 py-2 rounded-lg text-sm font-medium transition ${
-                              selectedCategory === category.id
-                                ? 'bg-green-600 text-white'
-                                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                            }`}
+                            onClick={() => setSelectedBrand('')}
+                            className={`px-4 py-2 rounded-lg font-medium transition ${selectedBrand === '' ? 'bg-blue-600 text-white' : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-300'}`}
                           >
-                            {category.name}
+                            All
                           </button>
-                        ))}
+                          {brands.map((brand) => (
+                            <button
+                              key={brand.id}
+                              type="button"
+                              onClick={() => setSelectedBrand(brand.id)}
+                              className={`px-4 py-2 rounded-lg font-medium transition ${selectedBrand === brand.id ? 'bg-blue-600 text-white' : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-300'}`}
+                            >
+                              {brand.name}
+                            </button>
+                          ))}
+                        </div>
                       </div>
-                    </div>
-                  </div>
 
-                  {items.length === 0 ? (
-                    <div className="text-center py-12 bg-gray-50 border-2 border-dashed border-gray-300 rounded-lg">
-                      <p className="text-gray-600 mb-4">No items added yet</p>
-                      <button
-                        type="button"
-                        onClick={addItem}
-                        className="btn-primary inline-flex items-center gap-2"
-                      >
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                        </svg>
-                        Add First Item
-                      </button>
-                    </div>
-                  ) : (
-                    <div className="space-y-4">
-                      {items.map((item, index) => {
-                        const filteredProducts = products.filter((p) =>
-                          productSearch[index]
-                            ? p.name.toLowerCase().includes(productSearch[index].toLowerCase()) ||
-                              p.sku.toLowerCase().includes(productSearch[index].toLowerCase()) ||
-                              (p.barcode && p.barcode.toLowerCase().includes(productSearch[index].toLowerCase()))
-                            : true
-                        )
+                      {/* Category Filter */}
+                      <div className="mb-4">
+                        <label className="block text-sm font-semibold text-gray-700 mb-2">Category</label>
+                        <div className="flex flex-wrap gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setSelectedCategory('')}
+                            className={`px-4 py-2 rounded-lg font-medium transition ${selectedCategory === '' ? 'bg-green-600 text-white' : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-300'}`}
+                          >
+                            All
+                          </button>
+                          {categories.map((category) => (
+                            <button
+                              key={category.id}
+                              type="button"
+                              onClick={() => setSelectedCategory(category.id)}
+                              className={`px-4 py-2 rounded-lg font-medium transition ${selectedCategory === category.id ? 'bg-green-600 text-white' : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-300'}`}
+                            >
+                              {category.name}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
 
-                        return (
-                        <div key={index} className="card p-4">
-                          <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
-                            <div className="md:col-span-5 relative">
-                              <label className="block text-xs font-medium text-gray-700 mb-1">
-                                Product *
-                                <button
-                                  type="button"
-                                  onClick={() => openScanner(index)}
-                                  className="ml-2 text-blue-600 hover:text-blue-700 text-xs"
-                                  title="Scan barcode"
-                                >
-                                  📷 Scan
-                                </button>
-                              </label>
-
-                              {/* Autocomplete Search Input */}
-                              <div className="relative">
-                                <input
-                                  type="text"
-                                  placeholder="🔍 Type to search products..."
-                                  value={productSearch[index] || ''}
-                                  onChange={(e) => handleSearchChange(index, e.target.value)}
-                                  className="input text-sm mb-2 border-2 border-blue-200 focus:border-blue-500"
+                      {/* Product Grid */}
+                      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 max-h-96 overflow-y-auto p-2">
+                        {getFilteredProducts().slice(0, 50).map((product) => (
+                          <button
+                            key={product.id}
+                            type="button"
+                            onClick={() => handleAddProductFromGrid(product)}
+                            className="card p-3 hover:shadow-lg transition-all hover:scale-105 bg-white border-2 border-transparent hover:border-blue-500"
+                          >
+                            {/* Product Image */}
+                            <div className="aspect-square bg-gray-100 rounded-lg mb-2 flex items-center justify-center overflow-hidden">
+                              {product.imageUrl ? (
+                                <img
+                                  src={product.imageUrl.startsWith('http') ? product.imageUrl : `https://melltool-backend.fly.dev${product.imageUrl}`}
+                                  alt={product.name}
+                                  className="w-full h-full object-cover"
                                 />
-                                {productSearch[index] && (
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      const newSearch = [...productSearch]
-                                      newSearch[index] = ''
-                                      setProductSearch(newSearch)
-
-                                      const newShow = [...showSearchResults]
-                                      newShow[index] = false
-                                      setShowSearchResults(newShow)
-                                    }}
-                                    className="absolute right-3 top-2 text-gray-400 hover:text-gray-600"
-                                  >
-                                    ✕
-                                  </button>
-                                )}
-
-                                {/* Autocomplete Results Dropdown */}
-                                {showSearchResults[index] && searchResults[index] && searchResults[index].length > 0 && (
-                                  <div className="absolute z-50 w-full bg-white rounded-lg shadow-2xl border-2 border-blue-200 max-h-72 overflow-y-auto">
-                                    {searchResults[index].map((product: any) => (
-                                      <button
-                                        key={product.id}
-                                        type="button"
-                                        onClick={() => handleProductSelect(index, product)}
-                                        className="w-full p-3 hover:bg-blue-50 transition-colors flex items-center gap-3 border-b border-gray-100 last:border-b-0 text-left"
-                                      >
-                                        {/* Product Image */}
-                                        <div className="w-12 h-12 rounded-lg bg-gray-100 flex-shrink-0 flex items-center justify-center overflow-hidden">
-                                          {product.imageUrl ? (
-                                            <img
-                                              src={product.imageUrl.startsWith('http') ? product.imageUrl : `https://melltool-backend.fly.dev${product.imageUrl}`}
-                                              alt={product.name}
-                                              className="w-full h-full object-cover"
-                                            />
-                                          ) : (
-                                            <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
-                                            </svg>
-                                          )}
-                                        </div>
-
-                                        {/* Product Info */}
-                                        <div className="flex-1 min-w-0">
-                                          <h4 className="font-semibold text-gray-900 text-sm truncate">{product.name}</h4>
-                                          <p className="text-xs text-gray-600">{product.sku}</p>
-                                          <div className="flex items-center gap-2 mt-1">
-                                            <span className="text-xs font-medium text-blue-600">฿{product.costPrice?.toLocaleString() || 'N/A'}</span>
-                                            <span className={`text-xs px-2 py-0.5 rounded-full ${product.stockQty > 0 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
-                                              Stock: {product.stockQty}
-                                            </span>
-                                          </div>
-                                        </div>
-
-                                        {/* Add Icon */}
-                                        <div className="flex-shrink-0">
-                                          <div className="w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center">
-                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                                            </svg>
-                                          </div>
-                                        </div>
-                                      </button>
-                                    ))}
-                                  </div>
-                                )}
-                              </div>
-
-                              {/* Fallback Select (hidden field for form validation) */}
-                              <input
-                                type="hidden"
-                                required
-                                value={item.productId}
-                              />
-
-                              {/* Selected Product Display */}
-                              {item.productId && (
-                                <div className="text-xs text-gray-600 bg-green-50 border border-green-200 rounded p-2 mb-2">
-                                  ✓ Selected: {products.find(p => p.id === item.productId)?.name || 'Product'}
-                                </div>
+                              ) : (
+                                <svg className="w-12 h-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                                </svg>
                               )}
                             </div>
 
-                            <div className="md:col-span-3">
-                              <label className="block text-xs font-medium text-gray-700 mb-1">
-                                Quantity *
-                              </label>
-                              <input
-                                type="number"
-                                required
-                                min="1"
-                                value={item.quantity}
-                                onChange={(e) => updateItem(index, 'quantity', parseInt(e.target.value))}
-                                className="input text-sm"
-                                placeholder="0"
-                              />
+                            {/* Product Info */}
+                            <div className="text-left">
+                              <h4 className="font-semibold text-sm text-gray-900 truncate mb-1">{product.name}</h4>
+                              <p className="text-xs text-gray-600 truncate mb-1">{product.sku}</p>
+                              <div className="flex items-center justify-between">
+                                <span className="text-xs font-medium text-blue-600">฿{product.costPrice?.toLocaleString() || 'N/A'}</span>
+                                <span className={`text-xs px-2 py-0.5 rounded-full ${product.stockQty > 0 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                                  {product.stockQty}
+                                </span>
+                              </div>
                             </div>
+                          </button>
+                        ))}
+                      </div>
 
-                            <div className="md:col-span-3">
-                              <label className="block text-xs font-medium text-gray-700 mb-1">
-                                Unit Cost (฿) *
-                              </label>
-                              <input
-                                type="number"
-                                required
-                                min="0"
-                                step="0.01"
-                                value={item.unitCost}
-                                onChange={(e) => updateItem(index, 'unitCost', parseFloat(e.target.value))}
-                                className="input text-sm"
-                                placeholder="0.00"
-                              />
-                            </div>
+                      {getFilteredProducts().length > 50 && (
+                        <p className="text-sm text-gray-600 mt-3 text-center">
+                          Showing first 50 of {getFilteredProducts().length} products. Use filters or search to narrow down.
+                        </p>
+                      )}
 
-                            <div className="md:col-span-1 flex items-end">
+                      {getFilteredProducts().length === 0 && (
+                        <div className="text-center py-8 text-gray-500">
+                          No products found. Try different filters or search terms.
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Selected Items List */}
+                  {items.length === 0 ? (
+                    <div className="text-center py-12 bg-gray-50 border-2 border-dashed border-gray-300 rounded-lg">
+                      <svg className="w-16 h-16 text-gray-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
+                      </svg>
+                      <p className="text-gray-600 text-lg mb-3">No items added yet</p>
+                      <p className="text-gray-500 text-sm">Click "Add Products" above to select items</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {items.map((item, index) => {
+                        const product = products.find(p => p.id === item.productId)
+                        return (
+                          <div key={index} className="card p-4 bg-white">
+                            <div className="flex items-start gap-4">
+                              {/* Product Image */}
+                              <div className="w-16 h-16 bg-gray-100 rounded-lg flex items-center justify-center flex-shrink-0 overflow-hidden">
+                                {product?.imageUrl ? (
+                                  <img
+                                    src={product.imageUrl.startsWith('http') ? product.imageUrl : `https://melltool-backend.fly.dev${product.imageUrl}`}
+                                    alt={product.name}
+                                    className="w-full h-full object-cover"
+                                  />
+                                ) : (
+                                  <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                                  </svg>
+                                )}
+                              </div>
+
+                              {/* Product Info and Inputs */}
+                              <div className="flex-1 min-w-0">
+                                <h4 className="font-semibold text-gray-900 mb-1 truncate">{product?.name || 'Unknown Product'}</h4>
+                                <p className="text-sm text-gray-600 mb-3">{product?.sku}</p>
+
+                                <div className="grid grid-cols-2 gap-3">
+                                  <div>
+                                    <label className="block text-xs font-medium text-gray-700 mb-1">Quantity</label>
+                                    <input
+                                      type="number"
+                                      required
+                                      min="1"
+                                      value={item.quantity}
+                                      onChange={(e) => updateItem(index, 'quantity', parseInt(e.target.value) || 1)}
+                                      className="input w-full"
+                                    />
+                                  </div>
+                                  <div>
+                                    <label className="block text-xs font-medium text-gray-700 mb-1">Unit Cost (฿)</label>
+                                    <input
+                                      type="number"
+                                      required
+                                      min="0"
+                                      step="0.01"
+                                      value={item.unitCost}
+                                      onChange={(e) => updateItem(index, 'unitCost', parseFloat(e.target.value) || 0)}
+                                      className="input w-full"
+                                    />
+                                  </div>
+                                </div>
+
+                                <div className="mt-2 flex items-center justify-between">
+                                  <span className="text-sm text-gray-600">Subtotal:</span>
+                                  <span className="font-bold text-lg text-gray-900">
+                                    ฿{(item.quantity * item.unitCost).toLocaleString()}
+                                  </span>
+                                </div>
+                              </div>
+
+                              {/* Remove Button */}
                               <button
                                 type="button"
                                 onClick={() => removeItem(index)}
-                                className="btn-danger w-full"
-                                title="Remove"
+                                className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition"
+                                title="Remove item"
                               >
-                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                                 </svg>
                               </button>
                             </div>
-                          </div>
 
-                          {item.productId && item.quantity > 0 && item.unitCost > 0 && (
-                            <div className="mt-3 pt-3 border-t border-gray-200 flex justify-between text-sm">
-                              <span className="text-gray-600">Subtotal:</span>
-                              <span className="font-bold text-gray-900">
-                                ฿{(item.quantity * item.unitCost).toLocaleString()}
-                              </span>
-                            </div>
-                          )}
-                        </div>
+                            {/* Hidden validation field */}
+                            <input type="hidden" required value={item.productId} />
+                          </div>
                         )
                       })}
                     </div>
