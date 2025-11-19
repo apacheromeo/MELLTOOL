@@ -6,7 +6,7 @@
   "private": true,
   "license": "UNLICENSED",
   "scripts": {
-    "build": "nest build && tsc-alias",
+    "build": "prisma generate && nest build && tsc-alias",
     "build:prod": "echo '📦 Generating Prisma client...' && npx prisma generate && echo '🔨 Compiling TypeScript...' && nest build && echo '🔗 Resolving path aliases with tsc-alias...' && tsc-alias -p tsconfig.json && echo '✅ Build completed' && node -e \"const fs=require('fs'); const p=require('path'); console.log('\\n📋 Verifying build output:'); ['main.js','common/prisma/prisma.service.js','modules/auth/auth.module.js'].forEach(f=>{const fp=p.join('dist',f); if(!fs.existsSync(fp)) throw new Error('❌ Missing: '+f); console.log('  ✓',f);});\"",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
     "start": "nest start",

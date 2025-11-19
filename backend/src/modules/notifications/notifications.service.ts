@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
+import { PrismaService } from '../../common/prisma/prisma.service';
 import * as nodemailer from 'nodemailer';
 import { ConfigService } from '@nestjs/config';
 
@@ -27,7 +27,7 @@ export class NotificationsService {
     };
 
     if (mailConfig.auth.user && mailConfig.auth.pass) {
-      this.transporter = nodemailer.createTransporter(mailConfig);
+      this.transporter = nodemailer.createTransport(mailConfig);
       this.logger.log('Email transporter initialized');
     } else {
       this.logger.warn('Email credentials not configured. Notifications will be logged only.');
