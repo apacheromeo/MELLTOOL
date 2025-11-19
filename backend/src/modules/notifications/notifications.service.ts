@@ -58,14 +58,14 @@ export class NotificationsService {
       const allProducts = await this.prisma.product.findMany({
         where: {
           isActive: true,
-          lowStockThreshold: { not: null },
+          minStock: { gt: 0 },
         },
         select: {
           id: true,
           sku: true,
           name: true,
-          stock: true,
-          lowStockThreshold: true,
+          stockQty: true,
+          minStock: true,
           category: {
             select: {
               name: true,
@@ -74,10 +74,10 @@ export class NotificationsService {
         },
       });
 
-      // Filter products where stock <= lowStockThreshold
+      // Filter products where stockQty <= minStock
       const lowStockProducts = allProducts
-        .filter((p) => p.stock <= (p.lowStockThreshold || 0))
-        .sort((a, b) => a.stock - b.stock);
+        .filter((p) => p.stockQty <= p.minStock)
+        .sort((a, b) => a.stockQty - b.stockQty);
 
       if (lowStockProducts.length === 0) {
         this.logger.log('No low stock products found');
@@ -156,8 +156,8 @@ export class NotificationsService {
 
   private generateLowStockEmailHTML(products: any[], userName: string): string {
     const productRows = products.map((p) => {
-      const stockPercentage = p.lowStockThreshold
-        ? Math.round((p.stock / p.lowStockThreshold) * 100)
+      const stockPercentage = p.minStock
+        ? Math.round((p.stockQty / p.minStock) * 100)
         : 0;
       const urgencyColor = stockPercentage < 10 ? '#dc2626' : stockPercentage < 20 ? '#f59e0b' : '#3b82f6';
 
@@ -166,8 +166,8 @@ export class NotificationsService {
           <td style="padding: 12px;">${p.sku}</td>
           <td style="padding: 12px;">${p.name}</td>
           <td style="padding: 12px;">${p.category?.name || 'N/A'}</td>
-          <td style="padding: 12px; font-weight: bold; color: ${urgencyColor};">${p.stock}</td>
-          <td style="padding: 12px;">${p.lowStockThreshold || 'N/A'}</td>
+          <td style="padding: 12px; font-weight: bold; color: ${urgencyColor};">${p.stockQty}</td>
+          <td style="padding: 12px;">${p.minStock}</td>
         </tr>
       `;
     }).join('');
@@ -227,7 +227,7 @@ export class NotificationsService {
 
   private generateLowStockEmailText(products: any[]): string {
     const productList = products.map((p) =>
-      `- ${p.sku}: ${p.name} (${p.category?.name || 'N/A'}) - Stock: ${p.stock}/${p.lowStockThreshold || 'N/A'}`
+      `- ${p.sku}: ${p.name} (${p.category?.name || 'N/A'}) - Stock: ${p.stockQty}/${p.minStock}`
     ).join('\n');
 
     return `
