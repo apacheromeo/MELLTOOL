@@ -34,6 +34,7 @@ export default function InventoryPage() {
     imageUrl: '',
   })
   const [imagePreview, setImagePreview] = useState<string | null>(null)
+  const [imageFile, setImageFile] = useState<File | null>(null)
   const [showImportModal, setShowImportModal] = useState(false)
   const [importFile, setImportFile] = useState<File | null>(null)
   const [importing, setImporting] = useState(false)
@@ -118,7 +119,12 @@ export default function InventoryPage() {
       barcode: product.barcode || '',
       imageUrl: product.imageUrl || '',
     })
-    setImagePreview(product.imageUrl || null)
+    // Show existing image as preview, but no file selected yet
+    const fullImageUrl = product.imageUrl
+      ? (product.imageUrl.startsWith('http') ? product.imageUrl : `https://melltool-backend.fly.dev${product.imageUrl}`)
+      : null
+    setImagePreview(fullImageUrl)
+    setImageFile(null)
     setShowModal(true)
   }
 
@@ -145,10 +151,23 @@ export default function InventoryPage() {
         delete productData.brandId
       }
 
+      let productId: string
       if (editingProduct) {
-        await api.updateProduct(editingProduct.id, productData)
+        const savedProduct = await api.updateProduct(editingProduct.id, productData)
+        productId = savedProduct?.id || editingProduct.id
       } else {
-        await api.createProduct(productData)
+        const savedProduct = await api.createProduct(productData)
+        productId = savedProduct?.id
+      }
+
+      // Upload image if a new one was selected
+      if (imageFile && productId) {
+        try {
+          await api.uploadProductImage(productId, imageFile)
+        } catch (imgErr: any) {
+          console.error('Failed to upload image:', imgErr)
+          alert('Product saved but image upload failed: ' + imgErr.message)
+        }
       }
 
       closeModal()
@@ -161,11 +180,13 @@ export default function InventoryPage() {
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (file) {
+      // Store the file for upload
+      setImageFile(file)
+
       // Create preview
       const reader = new FileReader()
       reader.onloadend = () => {
         setImagePreview(reader.result as string)
-        setFormData({ ...formData, imageUrl: reader.result as string })
       }
       reader.readAsDataURL(file)
     }
@@ -175,6 +196,7 @@ export default function InventoryPage() {
     setShowModal(false)
     setEditingProduct(null)
     setImagePreview(null)
+    setImageFile(null)
     setFormData({
       sku: '',
       name: '',
@@ -454,6 +476,7 @@ export default function InventoryPage() {
                               type="button"
                               onClick={() => {
                                 setImagePreview(null)
+                                setImageFile(null)
                                 setFormData({ ...formData, imageUrl: '' })
                               }}
                               className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600 transition"
