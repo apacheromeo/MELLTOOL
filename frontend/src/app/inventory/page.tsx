@@ -39,11 +39,30 @@ export default function InventoryPage() {
   const [importing, setImporting] = useState(false)
   const [importResult, setImportResult] = useState<any>(null)
   const [updateExisting, setUpdateExisting] = useState(false)
+  const [categories, setCategories] = useState<any[]>([])
+  const [brands, setBrands] = useState<any[]>([])
 
   useEffect(() => {
     loadProducts()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [page, search])
+
+  useEffect(() => {
+    loadCategoriesAndBrands()
+  }, [])
+
+  const loadCategoriesAndBrands = async () => {
+    try {
+      const [categoriesData, brandsData] = await Promise.all([
+        api.getCategories(),
+        api.getBrands(),
+      ])
+      setCategories(categoriesData || [])
+      setBrands(brandsData || [])
+    } catch (err: any) {
+      console.error('Failed to load categories/brands:', err)
+    }
+  }
 
   const loadProducts = async () => {
     try {
@@ -105,9 +124,9 @@ export default function InventoryPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    
+
     try {
-      const productData = {
+      const productData: any = {
         ...formData,
         costPrice: parseFloat(formData.costPrice) || 0,
         sellPrice: parseFloat(formData.sellPrice) || 0,
@@ -115,12 +134,20 @@ export default function InventoryPage() {
         minStock: parseInt(formData.minStock) || 0,
       }
 
+      // Remove empty categoryId and brandId to avoid foreign key constraint errors
+      if (!productData.categoryId) {
+        delete productData.categoryId
+      }
+      if (!productData.brandId) {
+        delete productData.brandId
+      }
+
       if (editingProduct) {
         await api.updateProduct(editingProduct.id, productData)
       } else {
         await api.createProduct(productData)
       }
-      
+
       closeModal()
       loadProducts()
     } catch (err: any) {
@@ -548,11 +575,11 @@ export default function InventoryPage() {
                       className="select"
                     >
                       <option value="">Select category...</option>
-                      <option value="cat-1">Filters</option>
-                      <option value="cat-2">Batteries</option>
-                      <option value="cat-3">Brushes</option>
-                      <option value="cat-4">Motors</option>
-                      <option value="cat-5">Parts</option>
+                      {categories.map((category) => (
+                        <option key={category.id} value={category.id}>
+                          {category.name}
+                        </option>
+                      ))}
                     </select>
                   </div>
 
@@ -567,10 +594,11 @@ export default function InventoryPage() {
                       className="select"
                     >
                       <option value="">Select brand...</option>
-                      <option value="brand-1">Dyson</option>
-                      <option value="brand-2">Xiaomi</option>
-                      <option value="brand-3">Roborock</option>
-                      <option value="brand-4">Electrolux</option>
+                      {brands.map((brand) => (
+                        <option key={brand.id} value={brand.id}>
+                          {brand.name}
+                        </option>
+                      ))}
                     </select>
                   </div>
 
