@@ -572,113 +572,123 @@ export class SalesService {
     startDate?: Date;
     endDate?: Date;
   }) {
-    const page = params.page || 1;
-    const limit = params.limit || 20;
-    const skip = (page - 1) * limit;
+    try {
+      const page = params.page || 1;
+      const limit = params.limit || 20;
+      const skip = (page - 1) * limit;
 
-    const where: any = {};
+      const where: any = {};
 
-    if (params.status) {
-      where.status = params.status;
-    }
-
-    if (params.staffId) {
-      where.staffId = params.staffId;
-    }
-
-    if (params.startDate || params.endDate) {
-      where.createdAt = {};
-      if (params.startDate) {
-        where.createdAt.gte = params.startDate;
+      if (params.status) {
+        where.status = params.status;
       }
-      if (params.endDate) {
-        where.createdAt.lte = params.endDate;
-      }
-    }
 
-    const [orders, total] = await Promise.all([
-      this.prisma.salesOrder.findMany({
-        where,
-        include: {
-          staff: {
-            select: {
-              id: true,
-              name: true,
+      if (params.staffId) {
+        where.staffId = params.staffId;
+      }
+
+      if (params.startDate || params.endDate) {
+        where.createdAt = {};
+        if (params.startDate) {
+          where.createdAt.gte = params.startDate;
+        }
+        if (params.endDate) {
+          where.createdAt.lte = params.endDate;
+        }
+      }
+
+      const [orders, total] = await Promise.all([
+        this.prisma.salesOrder.findMany({
+          where,
+          include: {
+            staff: {
+              select: {
+                id: true,
+                name: true,
+              },
+            },
+            _count: {
+              select: {
+                items: true,
+              },
             },
           },
-          _count: {
-            select: {
-              items: true,
-            },
+          orderBy: {
+            createdAt: 'desc',
           },
-        },
-        orderBy: {
-          createdAt: 'desc',
-        },
-        skip,
-        take: limit,
-      }),
-      this.prisma.salesOrder.count({ where }),
-    ]);
+          skip,
+          take: limit,
+        }),
+        this.prisma.salesOrder.count({ where }),
+      ]);
 
-    return {
-      orders,
-      pagination: {
-        page,
-        limit,
-        total,
-        pages: Math.ceil(total / limit),
-      },
-    };
+      return {
+        orders,
+        pagination: {
+          page,
+          limit,
+          total,
+          pages: Math.ceil(total / limit),
+        },
+      };
+    } catch (error) {
+      this.logger.error(`Error fetching sales history: ${error.message}`, error.stack);
+      throw new Error(`Failed to fetch sales history: ${error.message}`);
+    }
   }
 
   /**
    * Get daily sales report
    */
   async getDailyReport(date: Date) {
-    const startOfDay = new Date(date);
-    startOfDay.setHours(0, 0, 0, 0);
+    try {
+      const startOfDay = new Date(date);
+      startOfDay.setHours(0, 0, 0, 0);
 
-    const endOfDay = new Date(date);
-    endOfDay.setHours(23, 59, 59, 999);
+      const endOfDay = new Date(date);
+      endOfDay.setHours(23, 59, 59, 999);
 
-    const orders = await this.prisma.salesOrder.findMany({
-      where: {
-        status: 'CONFIRMED',
-        confirmedAt: {
-          gte: startOfDay,
-          lte: endOfDay,
-        },
-      },
-      include: {
-        items: true,
-        staff: {
-          select: {
-            id: true,
-            name: true,
+      const orders = await this.prisma.salesOrder.findMany({
+        where: {
+          status: 'CONFIRMED',
+          confirmedAt: {
+            gte: startOfDay,
+            lte: endOfDay,
           },
         },
-      },
-    });
+        include: {
+          items: true,
+          staff: {
+            select: {
+              id: true,
+              name: true,
+            },
+          },
+        },
+      });
 
-    const totalOrders = orders.length;
-    const totalRevenue = orders.reduce((sum, order) => sum + order.totalPrice, 0);
-    const totalCost = orders.reduce((sum, order) => sum + order.totalCost, 0);
-    const totalProfit = totalRevenue - totalCost;
-    const totalItemsSold = orders.reduce(
-      (sum, order) => sum + order.items.reduce((s, item) => s + item.quantity, 0),
-      0,
-    );
+      const totalOrders = orders.length;
+      const totalRevenue = orders.reduce((sum, order) => sum + (order.totalPrice || 0), 0);
+      const totalCost = orders.reduce((sum, order) => sum + (order.totalCost || 0), 0);
+      const totalProfit = totalRevenue - totalCost;
+      const totalItemsSold = orders.reduce(
+        (sum, order) => sum + (order.items || []).reduce((s, item) => s + (item.quantity || 0), 0),
+        0,
+      );
 
-    return {
-      date,
-      totalOrders,
-      totalRevenue,
-      totalCost,
-      totalProfit,
-      totalItemsSold,
-      orders,
-    };
+      return {
+        date,
+        totalOrders,
+        totalRevenue,
+        totalCost,
+        totalProfit,
+        totalItemsSold,
+        orders,
+      };
+    } catch (error) {
+      this.logger.error(`Error fetching daily report: ${error.message}`, error.stack);
+      throw new Error(`Failed to fetch daily report: ${error.message}`);
+    }
   }
 
   /**

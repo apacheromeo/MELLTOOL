@@ -189,14 +189,18 @@ export class SalesController {
     @Query('startDate') startDate?: string,
     @Query('endDate') endDate?: string,
   ) {
-    return this.salesService.getSalesHistory({
-      page: page ? Number(page) : undefined,
-      limit: limit ? Number(limit) : undefined,
-      status,
-      staffId,
-      startDate: startDate ? new Date(startDate) : undefined,
-      endDate: endDate ? new Date(endDate) : undefined,
-    });
+    try {
+      return await this.salesService.getSalesHistory({
+        page: page ? Number(page) : undefined,
+        limit: limit ? Number(limit) : undefined,
+        status,
+        staffId,
+        startDate: startDate ? new Date(startDate) : undefined,
+        endDate: endDate ? new Date(endDate) : undefined,
+      });
+    } catch (error) {
+      throw new Error(`Failed to get sales history: ${error.message}`);
+    }
   }
 
   /**
@@ -207,8 +211,12 @@ export class SalesController {
   @ApiOperation({ summary: 'Get daily sales report' })
   @ApiResponse({ status: 200, description: 'Daily sales summary' })
   async getDailyReport(@Query('date') date?: string) {
-    const reportDate = date ? new Date(date) : new Date();
-    return this.salesService.getDailyReport(reportDate);
+    try {
+      const reportDate = date ? new Date(date) : new Date();
+      return await this.salesService.getDailyReport(reportDate);
+    } catch (error) {
+      throw new Error(`Failed to get daily report: ${error.message}`);
+    }
   }
 
   /**
