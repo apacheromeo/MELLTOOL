@@ -933,9 +933,13 @@ function ProductCard({ product, onDelete, onEdit, userRole }: any) {
       {product.imageUrl && (
         <div className="mb-4">
           <img
-            src={product.imageUrl}
+            src={product.imageUrl.startsWith('http') ? product.imageUrl : `https://melltool-backend.fly.dev${product.imageUrl}`}
             alt={product.name}
             className="w-full h-48 object-cover rounded-lg"
+            onError={(e) => {
+              // Hide image if it fails to load
+              (e.target as HTMLImageElement).style.display = 'none'
+            }}
           />
         </div>
       )}

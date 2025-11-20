@@ -69,11 +69,32 @@ export default function POSCart({
             className="p-6 hover:bg-gray-50 transition-colors"
           >
             <div className="flex items-start gap-6">
-              {/* Product Image Placeholder */}
-              <div className="w-20 h-20 bg-gradient-to-br from-gray-100 to-gray-200 rounded-xl flex-shrink-0 flex items-center justify-center">
-                <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
-                </svg>
+              {/* Product Image */}
+              <div className="w-20 h-20 bg-gradient-to-br from-gray-100 to-gray-200 rounded-xl flex-shrink-0 flex items-center justify-center overflow-hidden">
+                {item.product?.imageUrl || item.imageUrl ? (
+                  <img
+                    src={(item.product?.imageUrl || item.imageUrl).startsWith('http')
+                      ? (item.product?.imageUrl || item.imageUrl)
+                      : `https://melltool-backend.fly.dev${item.product?.imageUrl || item.imageUrl}`}
+                    alt={item.productName}
+                    className="w-full h-full object-cover"
+                    onError={(e) => {
+                      // Fallback to placeholder icon if image fails to load
+                      const target = e.target as HTMLImageElement
+                      target.style.display = 'none'
+                      const parent = target.parentElement
+                      if (parent) {
+                        parent.innerHTML = `<svg class="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                        </svg>`
+                      }
+                    }}
+                  />
+                ) : (
+                  <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                  </svg>
+                )}
               </div>
 
               {/* Product Info */}
