@@ -218,6 +218,9 @@ export class ProductImportService {
         if (existingProduct) {
           if (updateExisting) {
             // Update existing product
+            // For stock quantity, ADD to existing stock instead of replacing it
+            const newStockQty = existingProduct.stockQty + productData.stockQty;
+
             const updated = await this.prisma.product.update({
               where: { id: existingProduct.id },
               data: {
@@ -230,7 +233,7 @@ export class ProductImportService {
                 color: productData.color,
                 costPrice: productData.costPrice,
                 sellPrice: productData.sellPrice,
-                stockQty: productData.stockQty,
+                stockQty: newStockQty, // Add to existing stock
                 minStock: productData.minStock,
                 maxStock: productData.maxStock,
                 categoryId: productData.categoryId,
@@ -243,7 +246,7 @@ export class ProductImportService {
             });
             result.products.push(updated);
             result.success++;
-            this.logger.log(`Updated product: ${updated.sku} - ${updated.name}`);
+            this.logger.log(`Updated product: ${updated.sku} - ${updated.name} (stock: ${existingProduct.stockQty} + ${productData.stockQty} = ${newStockQty})`);
           } else {
             result.skipped++;
             result.errors.push({

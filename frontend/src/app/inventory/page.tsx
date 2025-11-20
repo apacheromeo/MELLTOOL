@@ -742,16 +742,24 @@ export default function InventoryPage() {
                       </div>
 
                       <div className="mb-6">
-                        <label className="flex items-center gap-2 cursor-pointer">
+                        <label className="flex items-start gap-2 cursor-pointer">
                           <input
                             type="checkbox"
                             checked={updateExisting}
                             onChange={(e) => setUpdateExisting(e.target.checked)}
-                            className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                            className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 mt-0.5"
                           />
-                          <span className="text-sm text-gray-700">
-                            Update existing products (if SKU matches)
-                          </span>
+                          <div className="flex-1">
+                            <span className="text-sm font-medium text-gray-700">
+                              Update existing products (if SKU matches)
+                            </span>
+                            <p className="text-xs text-gray-600 mt-1">
+                              ✓ Stock quantities will be <strong>added</strong> to existing stock (e.g., 10 + 5 = 15)
+                            </p>
+                            <p className="text-xs text-gray-600">
+                              ✓ Other fields (name, price, category, etc.) will be updated
+                            </p>
+                          </div>
                         </label>
                       </div>
 
