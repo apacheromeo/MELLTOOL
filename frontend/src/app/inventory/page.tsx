@@ -813,10 +813,12 @@ export default function InventoryPage() {
 
                     {importResult.errors && importResult.errors.length > 0 && (
                       <div className="mb-6">
-                        <h4 className="font-semibold text-gray-900 mb-2">Errors ({importResult.errors.length}):</h4>
-                        <div className="max-h-60 overflow-y-auto border border-gray-200 rounded-lg">
+                        <h4 className="font-semibold text-gray-900 mb-2">
+                          Errors ({importResult.errors.length}) - Scroll to see all
+                        </h4>
+                        <div className="max-h-96 overflow-y-auto border border-gray-200 rounded-lg">
                           <table className="w-full text-sm">
-                            <thead className="bg-gray-50">
+                            <thead className="bg-gray-50 sticky top-0">
                               <tr>
                                 <th className="px-4 py-2 text-left">Row</th>
                                 <th className="px-4 py-2 text-left">SKU</th>
@@ -825,7 +827,7 @@ export default function InventoryPage() {
                               </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-200">
-                              {importResult.errors.slice(0, 20).map((error: any, idx: number) => (
+                              {importResult.errors.map((error: any, idx: number) => (
                                 <tr key={idx} className="hover:bg-gray-50">
                                   <td className="px-4 py-2">{error.row}</td>
                                   <td className="px-4 py-2 font-mono text-xs">{error.sku || '-'}</td>
@@ -835,11 +837,6 @@ export default function InventoryPage() {
                               ))}
                             </tbody>
                           </table>
-                          {importResult.errors.length > 20 && (
-                            <div className="px-4 py-2 text-sm text-gray-600 bg-gray-50">
-                              ... and {importResult.errors.length - 20} more errors
-                            </div>
-                          )}
                         </div>
                       </div>
                     )}
