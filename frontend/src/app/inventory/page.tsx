@@ -134,6 +134,9 @@ export default function InventoryPage() {
         minStock: parseInt(formData.minStock) || 0,
       }
 
+      // Remove imageUrl from product data (images should be uploaded separately via the upload endpoint)
+      delete productData.imageUrl
+
       // Remove empty categoryId and brandId to avoid foreign key constraint errors
       if (!productData.categoryId) {
         delete productData.categoryId

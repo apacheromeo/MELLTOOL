@@ -246,7 +246,17 @@ export class ProductService {
       return updatedProduct;
     } catch (error) {
       this.logger.error(`Error updating product ${id}: ${error.message}`, error);
-      throw new BadRequestException('Failed to update product');
+
+      // Check for specific Prisma errors
+      if (error.code === 'P2003') {
+        throw new BadRequestException('Invalid category or brand ID provided');
+      }
+      if (error.code === 'P2002') {
+        throw new ConflictException('Product with this SKU or barcode already exists');
+      }
+
+      // Return more detailed error message
+      throw new BadRequestException(error.message || 'Failed to update product');
     }
   }
 
