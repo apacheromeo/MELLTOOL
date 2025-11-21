@@ -221,6 +221,8 @@ export class ProductImportService {
             // For stock quantity, ADD to existing stock instead of replacing it
             const newStockQty = existingProduct.stockQty + productData.stockQty;
 
+            // Note: imageUrl and barcode are intentionally NOT updated here
+            // to preserve manually uploaded images and generated barcodes
             const updated = await this.prisma.product.update({
               where: { id: existingProduct.id },
               data: {
@@ -238,6 +240,8 @@ export class ProductImportService {
                 maxStock: productData.maxStock,
                 categoryId: productData.categoryId,
                 brandId: productData.brandId,
+                // imageUrl: preserved (not updated)
+                // barcode: preserved (not updated)
               },
               include: {
                 brand: { select: { name: true } },
