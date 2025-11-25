@@ -210,10 +210,10 @@ export default function Sidebar() {
 
   return (
     <>
-      {/* Mobile Menu Toggle Button - Floating Bottom Right */}
+      {/* Mobile/Tablet Menu Toggle Button - Floating Bottom Right */}
       <button
         onClick={() => setIsMobileOpen(!isMobileOpen)}
-        className="md:hidden fixed bottom-6 right-6 z-50 p-4 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 text-white shadow-2xl hover:shadow-xl hover:scale-105 active:scale-95 transition-all duration-200 touch-manipulation"
+        className="lg:hidden fixed bottom-6 right-6 z-50 p-4 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 text-white shadow-2xl hover:shadow-xl hover:scale-105 active:scale-95 transition-all duration-200 touch-manipulation"
         aria-label={isMobileOpen ? 'Close menu' : 'Open menu'}
       >
         <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}>
@@ -225,18 +225,18 @@ export default function Sidebar() {
         </svg>
       </button>
 
-      {/* Mobile Overlay */}
+      {/* Mobile/Tablet Overlay */}
       {isMobileOpen && (
         <div
-          className="md:hidden fixed inset-0 bg-black/50 z-30"
+          className="lg:hidden fixed inset-0 bg-black/50 z-30"
           onClick={() => setIsMobileOpen(false)}
         />
       )}
 
       {/* Sidebar */}
       <aside className={`fixed left-0 top-0 h-screen bg-gradient-to-b from-white via-gray-50 to-white border-r border-gray-200 shadow-2xl transition-all duration-300 z-40 flex flex-col
-        ${isCollapsed ? 'w-20 md:w-80 lg:w-20' : 'w-64 md:w-80 lg:w-64'}
-        ${isMobileOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
+        ${isCollapsed ? 'w-20 lg:w-20' : 'w-64 lg:w-64'}
+        ${isMobileOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
       `}>
         {/* Logo Section */}
         <div className="h-16 md:h-20 flex items-center justify-between px-4 md:px-6 border-b border-gray-200 bg-white flex-shrink-0">
