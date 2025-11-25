@@ -16,13 +16,12 @@ export default function SidebarLayout({ children }: SidebarLayoutProps) {
 
   // Calculate margin based on sidebar state
   const getMainMargin = () => {
-    // Mobile: no margin (sidebar is overlay)
-    // Tablet (md): always 320px (md:ml-80)
-    // Desktop (lg): 256px when expanded (lg:ml-64), 80px when collapsed (lg:ml-20)
+    // Mobile & Tablet: no margin (sidebar is overlay)
+    // Desktop (lg+): 256px when expanded (lg:ml-64), 80px when collapsed (lg:ml-20)
     if (isCollapsed) {
-      return 'ml-0 md:ml-80 lg:ml-20'
+      return 'ml-0 lg:ml-20'
     }
-    return 'ml-0 md:ml-80 lg:ml-64'
+    return 'ml-0 lg:ml-64'
   }
 
   // Show loading state while checking authentication
