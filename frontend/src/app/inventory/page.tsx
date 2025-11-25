@@ -69,7 +69,7 @@ export default function InventoryPage() {
     try {
       setLoading(true)
       setError(null)
-      const data = await api.getProducts({ page, limit: 20, search })
+      const data = await api.getProducts({ page, limit: 21, search })
       setProducts(data.products || [])
       setPagination(data.pagination)
     } catch (err: any) {
@@ -379,32 +379,89 @@ export default function InventoryPage() {
 
             {/* Pagination */}
             {pagination && pagination.pages > 1 && (
-              <div className="flex items-center justify-center gap-3">
-                <button
-                  onClick={() => setPage(p => Math.max(1, p - 1))}
-                  disabled={page === 1}
-                  className="btn-secondary disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-                >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                  </svg>
-                  Previous
-                </button>
-                <div className="px-6 py-2 bg-white border border-gray-300 rounded-lg">
-                  <span className="text-gray-900 font-semibold">
-                    Page {page} of {pagination.pages}
-                  </span>
+              <div className="flex flex-col items-center gap-4">
+                {/* Page Numbers */}
+                <div className="flex items-center gap-2 flex-wrap justify-center">
+                  <button
+                    onClick={() => setPage(p => Math.max(1, p - 1))}
+                    disabled={page === 1}
+                    className="btn-secondary disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                    </svg>
+                    Previous
+                  </button>
+
+                  {/* Page Numbers */}
+                  <div className="flex items-center gap-1">
+                    {/* First page */}
+                    {page > 3 && (
+                      <>
+                        <button
+                          onClick={() => setPage(1)}
+                          className="px-4 py-2 rounded-lg border border-gray-300 bg-white hover:bg-gray-50 transition"
+                        >
+                          1
+                        </button>
+                        {page > 4 && (
+                          <span className="px-2 text-gray-500">...</span>
+                        )}
+                      </>
+                    )}
+
+                    {/* Pages around current page */}
+                    {Array.from({ length: pagination.pages }, (_, i) => i + 1)
+                      .filter(p => {
+                        // Show current page and 2 pages before/after
+                        return p >= page - 2 && p <= page + 2
+                      })
+                      .map(p => (
+                        <button
+                          key={p}
+                          onClick={() => setPage(p)}
+                          className={`px-4 py-2 rounded-lg border transition ${
+                            p === page
+                              ? 'border-blue-500 bg-blue-500 text-white font-semibold'
+                              : 'border-gray-300 bg-white hover:bg-gray-50'
+                          }`}
+                        >
+                          {p}
+                        </button>
+                      ))}
+
+                    {/* Last page */}
+                    {page < pagination.pages - 2 && (
+                      <>
+                        {page < pagination.pages - 3 && (
+                          <span className="px-2 text-gray-500">...</span>
+                        )}
+                        <button
+                          onClick={() => setPage(pagination.pages)}
+                          className="px-4 py-2 rounded-lg border border-gray-300 bg-white hover:bg-gray-50 transition"
+                        >
+                          {pagination.pages}
+                        </button>
+                      </>
+                    )}
+                  </div>
+
+                  <button
+                    onClick={() => setPage(p => Math.min(pagination.pages, p + 1))}
+                    disabled={page === pagination.pages}
+                    className="btn-secondary disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                  >
+                    Next
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
+                  </button>
                 </div>
-                <button
-                  onClick={() => setPage(p => Math.min(pagination.pages, p + 1))}
-                  disabled={page === pagination.pages}
-                  className="btn-secondary disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-                >
-                  Next
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                  </svg>
-                </button>
+
+                {/* Page info */}
+                <div className="text-sm text-gray-600">
+                  Showing page {page} of {pagination.pages} ({pagination.total} products total)
+                </div>
               </div>
             )}
           </>
@@ -953,19 +1010,30 @@ function ProductCard({ product, onDelete, onEdit, userRole }: any) {
   return (
     <div className="card p-6 card-hover">
       {/* Product Image */}
-      {product.imageUrl && (
-        <div className="mb-4">
+      <div className="mb-4 w-full h-48 bg-gradient-to-br from-gray-100 to-gray-200 rounded-lg flex items-center justify-center overflow-hidden">
+        {product.imageUrl ? (
           <img
             src={product.imageUrl.startsWith('http') ? product.imageUrl : `https://melltool-backend.fly.dev${product.imageUrl}`}
             alt={product.name}
-            className="w-full h-48 object-cover rounded-lg"
+            className="w-full h-full object-cover"
             onError={(e) => {
-              // Hide image if it fails to load
-              (e.target as HTMLImageElement).style.display = 'none'
+              // Show placeholder if image fails to load
+              const target = e.target as HTMLImageElement
+              target.style.display = 'none'
+              const parent = target.parentElement
+              if (parent) {
+                parent.innerHTML = `<svg class="w-16 h-16 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>`
+              }
             }}
           />
-        </div>
-      )}
+        ) : (
+          <svg className="w-16 h-16 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+          </svg>
+        )}
+      </div>
       
       {/* Header */}
       <div className="flex items-start justify-between mb-4">
