@@ -10,10 +10,16 @@ interface POSCheckoutProps {
 }
 
 const PAYMENT_METHODS = [
+  // Main e-commerce platforms (top priority)
+  { id: 'SHOPEE', label: 'Shopee', icon: '🛍️' },
+  { id: 'LAZADA', label: 'Lazada', icon: '🛒' },
+  { id: 'TIKTOK', label: 'TikTok Shop', icon: '📱' },
+  // Traditional payment methods
   { id: 'CASH', label: 'Cash', icon: '💵' },
   { id: 'CARD', label: 'Card', icon: '💳' },
-  { id: 'TRANSFER', label: 'Bank Transfer', icon: '🏦' },
-  { id: 'QRCODE', label: 'QR Code', icon: '📱' },
+  { id: 'TRANSFER', label: 'Transfer', icon: '🏦' },
+  { id: 'QRCODE', label: 'QR Code', icon: '📲' },
+  { id: 'OTHER', label: 'Other Method', icon: '💰' },
 ]
 
 export default function POSCheckout({
@@ -22,7 +28,7 @@ export default function POSCheckout({
   onBack,
   disabled,
 }: POSCheckoutProps) {
-  const [paymentMethod, setPaymentMethod] = useState('CASH')
+  const [paymentMethod, setPaymentMethod] = useState('SHOPEE')
   const [customerName, setCustomerName] = useState('')
   const [customerPhone, setCustomerPhone] = useState('')
   const [showCustomerInfo, setShowCustomerInfo] = useState(false)
@@ -101,19 +107,19 @@ export default function POSCheckout({
           <label className="block text-sm font-bold text-gray-700 mb-3">
             Payment Method
           </label>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
             {PAYMENT_METHODS.map((method) => (
               <button
                 key={method.id}
                 onClick={() => setPaymentMethod(method.id)}
-                className={`p-4 rounded-xl border-2 font-medium transition-all ${
+                className={`p-3 rounded-xl border-2 font-medium transition-all ${
                   paymentMethod === method.id
-                    ? 'border-green-500 bg-green-50 text-green-900'
+                    ? 'border-green-500 bg-green-50 text-green-900 shadow-lg'
                     : 'border-gray-300 bg-white text-gray-700 hover:border-gray-400'
                 }`}
               >
-                <div className="text-2xl mb-1">{method.icon}</div>
-                <div className="text-sm font-bold">{method.label}</div>
+                <div className="text-xl mb-1">{method.icon}</div>
+                <div className="text-xs font-bold">{method.label}</div>
               </button>
             ))}
           </div>

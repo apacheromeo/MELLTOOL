@@ -9,8 +9,10 @@ interface OrderItem {
   barcode?: string
   quantity: number
   unitPrice: number
+  imageUrl?: string
   product: {
     barcode?: string
+    imageUrl?: string
   }
 }
 
@@ -197,6 +199,24 @@ export default function OrderFulfillment({
                       ) : (
                         <span className="text-white font-bold">{scannedQty}</span>
                       )}
+                    </div>
+
+                    {/* Product Image */}
+                    <div className="w-16 h-16 flex-shrink-0">
+                      <img
+                        src={
+                          (item.product?.imageUrl || item.imageUrl)
+                            ? ((item.product?.imageUrl || item.imageUrl).startsWith('http')
+                                ? (item.product?.imageUrl || item.imageUrl)
+                                : `https://melltool-backend.fly.dev${item.product?.imageUrl || item.imageUrl}`)
+                            : '/placeholder-product.png'
+                        }
+                        alt={item.productName}
+                        className="w-full h-full object-cover rounded-xl border-2 border-gray-200"
+                        onError={(e) => {
+                          e.currentTarget.src = '/placeholder-product.png'
+                        }}
+                      />
                     </div>
 
                     {/* Item Info */}
