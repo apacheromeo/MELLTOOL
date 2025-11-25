@@ -15,7 +15,7 @@ interface OrderSummaryProps {
  */
 export default function OrderSummary({ order, onConfirm, onCancel, disabled }: OrderSummaryProps) {
   const [showPaymentForm, setShowPaymentForm] = useState(false)
-  const [paymentMethod, setPaymentMethod] = useState('CASH')
+  const [paymentMethod, setPaymentMethod] = useState('SHOPEE')
   const [customerName, setCustomerName] = useState('')
   const [customerPhone, setCustomerPhone] = useState('')
 
@@ -124,10 +124,14 @@ export default function OrderSummary({ order, onConfirm, onCancel, disabled }: O
                 onChange={(e) => setPaymentMethod(e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
               >
+                <option value="SHOPEE">🛍️ Shopee</option>
+                <option value="LAZADA">🛒 Lazada</option>
+                <option value="TIKTOK">📱 TikTok Shop</option>
                 <option value="CASH">💵 Cash</option>
                 <option value="CARD">💳 Card</option>
                 <option value="TRANSFER">🏦 Bank Transfer</option>
-                <option value="QRCODE">📱 QR Code</option>
+                <option value="QRCODE">📲 QR Code</option>
+                <option value="OTHER">💰 Other Method</option>
               </select>
             </div>
 
