@@ -218,8 +218,20 @@ export class ProductImportService {
         if (existingProduct) {
           if (updateExisting) {
             // Update existing product
-            // For stock quantity, ADD to existing stock instead of replacing it
-            const newStockQty = existingProduct.stockQty + productData.stockQty;
+            // Check if this is a stock adjustment import (has "New Stock" column)
+            const hasNewStockColumn = row['New Stock'] !== undefined || row['new stock'] !== undefined;
+            let newStockQty: number;
+
+            if (hasNewStockColumn) {
+              // Stock adjustment mode: Use "New Stock" value directly (replace, don't add)
+              const newStockValue = row['New Stock'] || row['new stock'];
+              newStockQty = parseInt(String(newStockValue)) || 0;
+              this.logger.log(`Stock adjustment for ${productData.sku}: ${existingProduct.stockQty} → ${newStockQty}`);
+            } else {
+              // Normal import mode: ADD to existing stock
+              newStockQty = existingProduct.stockQty + productData.stockQty;
+              this.logger.log(`Stock addition for ${productData.sku}: ${existingProduct.stockQty} + ${productData.stockQty} = ${newStockQty}`);
+            }
 
             // Note: imageUrl and barcode are intentionally NOT updated here
             // to preserve manually uploaded images and generated barcodes
@@ -235,7 +247,7 @@ export class ProductImportService {
                 color: productData.color,
                 costPrice: productData.costPrice,
                 sellPrice: productData.sellPrice,
-                stockQty: newStockQty, // Add to existing stock
+                stockQty: newStockQty,
                 minStock: productData.minStock,
                 maxStock: productData.maxStock,
                 categoryId: productData.categoryId,
@@ -250,7 +262,7 @@ export class ProductImportService {
             });
             result.products.push(updated);
             result.success++;
-            this.logger.log(`Updated product: ${updated.sku} - ${updated.name} (stock: ${existingProduct.stockQty} + ${productData.stockQty} = ${newStockQty})`);
+            this.logger.log(`Updated product: ${updated.sku} - ${updated.name} (final stock: ${newStockQty})`);
           } else {
             result.skipped++;
             result.errors.push({
@@ -388,6 +400,99 @@ export class ProductImportService {
       return result.data || [];
     } catch (error) {
       throw new BadRequestException(`Failed to parse CSV file: ${error.message}`);
+    }
+  }
+
+  /**
+   * Export current stock data for bulk adjustment
+   */
+  async exportStockData(): Promise<Buffer> {
+    try {
+      this.logger.log('Exporting current stock data');
+
+      // Get all active products with current stock levels
+      const products = await this.prisma.product.findMany({
+        where: { isActive: true },
+        include: {
+          category: { select: { name: true } },
+          brand: { select: { name: true } },
+        },
+        orderBy: { sku: 'asc' },
+      });
+
+      // Prepare data for export
+      const exportData = products.map((product) => ({
+        SKU: product.sku,
+        'Product Name': product.name,
+        'Product Name (Thai)': product.nameTh || '',
+        Category: product.category?.name || '',
+        Brand: product.brand?.name || '',
+        'Current Stock': product.stockQty,
+        'New Stock': product.stockQty, // User will update this column
+        'Stock Adjustment': 0, // Will be calculated: New Stock - Current Stock
+        'Min Stock': product.minStock || 0,
+        'Cost Price': product.costPrice,
+        'Sell Price': product.sellPrice || 0,
+        Barcode: product.barcode || '',
+      }));
+
+      // Create workbook
+      const workbook = XLSX.utils.book_new();
+      const worksheet = XLSX.utils.json_to_sheet(exportData);
+
+      // Set column widths
+      worksheet['!cols'] = [
+        { wch: 15 }, // SKU
+        { wch: 30 }, // Product Name
+        { wch: 30 }, // Product Name (Thai)
+        { wch: 20 }, // Category
+        { wch: 20 }, // Brand
+        { wch: 15 }, // Current Stock
+        { wch: 15 }, // New Stock
+        { wch: 15 }, // Stock Adjustment
+        { wch: 12 }, // Min Stock
+        { wch: 12 }, // Cost Price
+        { wch: 12 }, // Sell Price
+        { wch: 20 }, // Barcode
+      ];
+
+      // Add worksheet to workbook
+      XLSX.utils.book_append_sheet(workbook, worksheet, 'Stock Data');
+
+      // Add instructions sheet
+      const instructions = [
+        ['BULK STOCK ADJUSTMENT INSTRUCTIONS'],
+        [''],
+        ['How to use this file:'],
+        ['1. The "Current Stock" column shows your current inventory levels'],
+        ['2. Update the "New Stock" column with the desired stock quantities'],
+        ['3. The "Stock Adjustment" will be calculated automatically on import (New Stock - Current Stock)'],
+        ['4. You can also update Cost Price and Sell Price if needed'],
+        ['5. Do NOT modify the SKU column - this is used to identify products'],
+        ['6. Save the file and import it back through the Inventory page'],
+        [''],
+        ['Important Notes:'],
+        ['- Only modify the columns you want to update'],
+        ['- Product images will NOT be affected by this import'],
+        ['- Barcodes will NOT be affected by this import'],
+        ['- Invalid SKUs will be skipped during import'],
+      ];
+
+      const instructionsSheet = XLSX.utils.aoa_to_sheet(instructions);
+      instructionsSheet['!cols'] = [{ wch: 80 }];
+      XLSX.utils.book_append_sheet(workbook, instructionsSheet, 'Instructions');
+
+      // Generate buffer
+      const buffer = XLSX.write(workbook, {
+        type: 'buffer',
+        bookType: 'xlsx',
+      });
+
+      this.logger.log(`Stock data exported: ${products.length} products`);
+      return buffer;
+    } catch (error) {
+      this.logger.error('Error generating stock export:', error);
+      throw new BadRequestException(`Failed to export stock data: ${error.message}`);
     }
   }
 

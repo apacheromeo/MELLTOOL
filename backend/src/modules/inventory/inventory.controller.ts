@@ -82,7 +82,35 @@ export class InventoryController {
     return this.productService.findAll(searchDto);
   }
 
-  // IMPORT ROUTES - Must be before products/:id to avoid route conflicts
+  // IMPORT/EXPORT ROUTES - Must be before products/:id to avoid route conflicts
+  @Get('products/export/stock')
+  @Roles(UserRole.OWNER)
+  @ApiOperation({ summary: 'Export current stock data for bulk adjustment (Owner only)' })
+  @ApiResponse({ status: 200, description: 'Stock data exported successfully' })
+  @ApiResponse({ status: 500, description: 'Internal server error' })
+  async exportStockData(@Res() res: Response): Promise<void> {
+    try {
+      this.logger.log('Exporting stock data for bulk adjustment');
+      const stockBuffer = await this.productImportService.exportStockData();
+
+      const filename = `stock-export-${new Date().toISOString().split('T')[0]}.xlsx`;
+
+      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+      res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+      res.setHeader('Content-Length', stockBuffer.length);
+
+      res.send(stockBuffer);
+      this.logger.log(`Stock data exported successfully: ${filename}`);
+    } catch (error) {
+      this.logger.error('Error exporting stock data:', error);
+      res.status(500).json({
+        statusCode: 500,
+        message: 'Failed to export stock data',
+        error: error.message,
+      });
+    }
+  }
+
   @Get('products/import/template')
   @ApiOperation({ summary: 'Download import template (Excel file)' })
   @ApiResponse({ status: 200, description: 'Template file downloaded successfully' })

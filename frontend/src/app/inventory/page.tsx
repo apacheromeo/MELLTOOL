@@ -274,6 +274,38 @@ export default function InventoryPage() {
                 </svg>
                 Import from Excel
               </button>
+              {user?.role === 'OWNER' && (
+                <button
+                  type="button"
+                  onClick={async () => {
+                    try {
+                      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'https://melltool-backend.fly.dev'}/inventory/products/export/stock`, {
+                        headers: {
+                          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+                        },
+                      })
+                      if (!response.ok) throw new Error('Export failed')
+                      const blob = await response.blob()
+                      const url = window.URL.createObjectURL(blob)
+                      const a = document.createElement('a')
+                      a.href = url
+                      a.download = `stock-export-${new Date().toISOString().split('T')[0]}.xlsx`
+                      document.body.appendChild(a)
+                      a.click()
+                      window.URL.revokeObjectURL(url)
+                      document.body.removeChild(a)
+                    } catch (err) {
+                      alert('Failed to export stock data')
+                    }
+                  }}
+                  className="px-4 py-2.5 bg-green-600 border-2 border-green-600 text-white rounded-xl font-semibold hover:bg-green-700 hover:border-green-700 transition-all duration-300 shadow-md hover:shadow-lg flex items-center gap-2"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                  Export Stock
+                </button>
+              )}
               <button
                 type="button"
                 onClick={() => setShowModal(true)}
