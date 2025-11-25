@@ -279,12 +279,24 @@ export default function InventoryPage() {
                   type="button"
                   onClick={async () => {
                     try {
+                      const token = localStorage.getItem('auth_token')
+                      if (!token) {
+                        alert('You must be logged in to export stock data')
+                        return
+                      }
+
                       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'https://melltool-backend.fly.dev'}/inventory/products/export/stock`, {
                         headers: {
-                          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+                          'Authorization': `Bearer ${token}`,
                         },
                       })
-                      if (!response.ok) throw new Error('Export failed')
+
+                      if (!response.ok) {
+                        const errorText = await response.text()
+                        console.error('Export failed:', response.status, errorText)
+                        throw new Error(`Export failed: ${response.status}`)
+                      }
+
                       const blob = await response.blob()
                       const url = window.URL.createObjectURL(blob)
                       const a = document.createElement('a')
@@ -294,8 +306,9 @@ export default function InventoryPage() {
                       a.click()
                       window.URL.revokeObjectURL(url)
                       document.body.removeChild(a)
-                    } catch (err) {
-                      alert('Failed to export stock data')
+                    } catch (err: any) {
+                      console.error('Export error:', err)
+                      alert('Failed to export stock data: ' + (err.message || 'Unknown error'))
                     }
                   }}
                   className="px-4 py-2.5 bg-green-600 border-2 border-green-600 text-white rounded-xl font-semibold hover:bg-green-700 hover:border-green-700 transition-all duration-300 shadow-md hover:shadow-lg flex items-center gap-2"
