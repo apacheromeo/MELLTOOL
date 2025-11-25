@@ -66,9 +66,39 @@ export class CategoryService {
     }
   }
 
-  async findAll() {
+  async findAll(brandId?: string) {
+    const where: any = { isActive: true };
+
+    // If brandId is provided, only return categories that have products for this brand
+    if (brandId) {
+      return this.prisma.category.findMany({
+        where: {
+          ...where,
+          products: {
+            some: {
+              brandId,
+              isActive: true,
+            },
+          },
+        },
+        orderBy: { name: 'asc' },
+        include: {
+          _count: {
+            select: {
+              products: {
+                where: {
+                  brandId,
+                  isActive: true,
+                },
+              },
+            },
+          },
+        },
+      });
+    }
+
     return this.prisma.category.findMany({
-      where: { isActive: true },
+      where,
       orderBy: { name: 'asc' },
       include: {
         _count: {

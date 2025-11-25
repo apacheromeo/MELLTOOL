@@ -258,9 +258,10 @@ export class InventoryController {
   }
 
   @Get('categories')
-  @ApiOperation({ summary: 'Get all categories' })
-  async getCategories() {
-    return this.categoryService.findAll();
+  @ApiOperation({ summary: 'Get all categories, optionally filtered by brand' })
+  @ApiQuery({ name: 'brand', required: false, type: String, description: 'Filter categories by brand ID' })
+  async getCategories(@Query('brand') brandId?: string) {
+    return this.categoryService.findAll(brandId);
   }
 
   @Get('categories/:id')

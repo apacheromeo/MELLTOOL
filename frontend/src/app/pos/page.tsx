@@ -63,9 +63,9 @@ function POSPageContent() {
     }
   }
 
-  const loadCategories = async () => {
+  const loadCategories = async (brandId?: string) => {
     try {
-      const data = await api.getCategories()
+      const data = await api.getCategories(brandId)
       setCategories(data.filter((c: any) => c.isActive))
     } catch (err) {
       console.error('Failed to load categories:', err)
@@ -188,7 +188,7 @@ function POSPageContent() {
 
   const handleBrandSelect = async (brand: any) => {
     setSelectedBrand(brand)
-    await loadCategories()
+    await loadCategories(brand.id)
     setViewMode('categories')
   }
 

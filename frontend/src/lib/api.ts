@@ -156,8 +156,11 @@ class ApiClient {
     return response.json();
   }
 
-  async getCategories() {
-    return this.request('/inventory/categories');
+  async getCategories(brandId?: string) {
+    const url = brandId
+      ? `/inventory/categories?brand=${brandId}`
+      : '/inventory/categories';
+    return this.request(url);
   }
 
   async createCategory(data: any) {
