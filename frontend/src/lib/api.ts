@@ -174,6 +174,34 @@ class ApiClient {
     });
   }
 
+  // Master-Variant Product endpoints
+  async toggleMasterVisibility(productId: string, isVisible: boolean) {
+    return this.request(`/inventory/products/${productId}/visibility`, {
+      method: 'PATCH',
+      body: JSON.stringify({ isVisible }),
+    });
+  }
+
+  async createVariant(masterId: string, data: {
+    sku: string;
+    name: string;
+    nameTh?: string;
+    description?: string;
+    descriptionTh?: string;
+    barcode?: string;
+    sellPrice?: number;
+    imageUrl?: string;
+  }) {
+    return this.request(`/inventory/products/${masterId}/variants`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async getVariants(masterId: string) {
+    return this.request(`/inventory/products/${masterId}/variants`);
+  }
+
   async getCategories(brandId?: string) {
     const url = brandId
       ? `/inventory/categories?brand=${brandId}`

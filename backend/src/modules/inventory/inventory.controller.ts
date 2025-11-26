@@ -37,6 +37,8 @@ import { UpdateBrandDto } from './dto/update-brand.dto';
 import { SearchProductsDto } from './dto/search-products.dto';
 import { GenerateBarcodeDto } from './dto/generate-barcode.dto';
 import { AddProductCompatibilityDto } from './dto/add-product-compatibility.dto';
+import { ToggleVisibilityDto } from './dto/toggle-visibility.dto';
+import { CreateVariantDto } from './dto/create-variant.dto';
 
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
@@ -287,6 +289,43 @@ export class InventoryController {
   ) {
     this.logger.log(`Removing compatibility: ${id} <-> ${compatibleId}`);
     return this.productService.removeCompatibility(id, compatibleId);
+  }
+
+  // Master-Variant Product Management
+  @Patch('products/:id/visibility')
+  @Roles(UserRole.OWNER, UserRole.MOD)
+  @ApiOperation({ summary: 'Toggle visibility of a master product' })
+  @ApiResponse({ status: 200, description: 'Visibility updated successfully' })
+  @ApiResponse({ status: 400, description: 'Product is not a master product' })
+  @ApiResponse({ status: 404, description: 'Product not found' })
+  async toggleMasterVisibility(
+    @Param('id') id: string,
+    @Body() toggleVisibilityDto: ToggleVisibilityDto,
+  ) {
+    this.logger.log(`Toggling visibility for master product: ${id}`);
+    return this.productService.toggleMasterVisibility(id, toggleVisibilityDto.isVisible);
+  }
+
+  @Post('products/:id/variants')
+  @Roles(UserRole.OWNER, UserRole.MOD)
+  @ApiOperation({ summary: 'Create a variant product linked to a master product' })
+  @ApiResponse({ status: 201, description: 'Variant created successfully' })
+  @ApiResponse({ status: 400, description: 'Master product not found or invalid' })
+  async createVariant(
+    @Param('id') masterId: string,
+    @Body() createVariantDto: CreateVariantDto,
+  ) {
+    this.logger.log(`Creating variant for master product: ${masterId}`);
+    return this.productService.createVariant(masterId, createVariantDto);
+  }
+
+  @Get('products/:id/variants')
+  @ApiOperation({ summary: 'Get all variant products for a master product' })
+  @ApiResponse({ status: 200, description: 'Variants retrieved successfully' })
+  @ApiResponse({ status: 404, description: 'Master product not found' })
+  async getVariants(@Param('id') masterId: string) {
+    this.logger.log(`Getting variants for master product: ${masterId}`);
+    return this.productService.getVariants(masterId);
   }
 
   // Categories
