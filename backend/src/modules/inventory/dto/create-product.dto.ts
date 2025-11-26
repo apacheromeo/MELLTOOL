@@ -150,4 +150,31 @@ export class CreateProductDto {
   @IsOptional()
   @IsBoolean()
   isDigital?: boolean;
+
+  @ApiProperty({
+    description: 'Is this a master product (parent for variants)',
+    example: false,
+    required: false,
+  })
+  @IsOptional()
+  @IsBoolean()
+  isMaster?: boolean;
+
+  @ApiProperty({
+    description: 'Is master product visible in listings',
+    example: true,
+    required: false,
+  })
+  @IsOptional()
+  @IsBoolean()
+  isVisible?: boolean;
+
+  @ApiProperty({
+    description: 'Master product ID (for variant products)',
+    example: 'prod-123',
+    required: false,
+  })
+  @IsOptional()
+  @IsString()
+  masterProductId?: string;
 }

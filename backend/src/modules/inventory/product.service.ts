@@ -13,6 +13,7 @@ import * as path from 'path';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { SearchProductsDto } from './dto/search-products.dto';
+import { CreateVariantDto } from './dto/create-variant.dto';
 
 @Injectable()
 export class ProductService {
@@ -89,6 +90,9 @@ export class ProductService {
           categoryId,
           brandId,
           isDigital,
+          isMaster: createProductDto.isMaster || false,
+          isVisible: createProductDto.isVisible !== undefined ? createProductDto.isVisible : true,
+          masterProductId: createProductDto.masterProductId || null,
         },
         include: {
           brand: { select: { name: true } },
@@ -158,28 +162,103 @@ export class ProductService {
         include: {
           brand: { select: { name: true } },
           category: { select: { name: true } },
+          masterProduct: {
+            select: {
+              id: true,
+              sku: true,
+              name: true,
+              stockQty: true,
+              isVisible: true,
+            },
+          },
+          variants: {
+            where: { isActive: true },
+            select: {
+              id: true,
+              sku: true,
+              name: true,
+            },
+          },
         },
         orderBy: { [sortBy]: sortOrder },
       });
 
+      // Filter: hide master products that are marked as not visible
+      const visibleProducts = allProducts.filter(p => {
+        // Hide master products that are not visible
+        if (p.isMaster && !p.isVisible) {
+          return false;
+        }
+        return true;
+      });
+
       // Filter in memory for field comparison
-      const filteredProducts = allProducts.filter(p => p.stockQty <= p.minStock);
+      const filteredProducts = visibleProducts.filter(p => {
+        // For variants, use master's stock
+        const actualStock = p.masterProductId && p.masterProduct
+          ? p.masterProduct.stockQty
+          : p.stockQty;
+        const minStockThreshold = p.masterProductId && p.masterProduct
+          ? 0 // Variants don't have their own minStock
+          : p.minStock;
+        return actualStock <= minStockThreshold;
+      });
       total = filteredProducts.length;
       products = filteredProducts.slice(skip, skip + limit);
     } else {
-      [products, total] = await Promise.all([
-        this.prisma.product.findMany({
-          where,
-          include: {
-            brand: { select: { name: true } },
-            category: { select: { name: true } },
+      const allProducts = await this.prisma.product.findMany({
+        where,
+        include: {
+          brand: { select: { name: true } },
+          category: { select: { name: true } },
+          masterProduct: {
+            select: {
+              id: true,
+              sku: true,
+              name: true,
+              stockQty: true,
+              isVisible: true,
+            },
           },
-          orderBy: { [sortBy]: sortOrder },
-          skip,
-          take: limit,
-        }),
-        this.prisma.product.count({ where }),
-      ]);
+          variants: {
+            where: { isActive: true },
+            select: {
+              id: true,
+              sku: true,
+              name: true,
+            },
+          },
+        },
+        orderBy: { [sortBy]: sortOrder },
+        skip,
+        take: limit,
+      });
+
+      // Filter: hide master products that are marked as not visible
+      products = allProducts.filter(p => {
+        // Hide master products that are not visible
+        if (p.isMaster && !p.isVisible) {
+          return false;
+        }
+        return true;
+      });
+
+      // Also count with the same filter
+      const allProductsCount = await this.prisma.product.findMany({
+        where,
+        select: {
+          id: true,
+          isMaster: true,
+          isVisible: true,
+        },
+      });
+
+      total = allProductsCount.filter(p => {
+        if (p.isMaster && !p.isVisible) {
+          return false;
+        }
+        return true;
+      }).length;
     }
 
     return {
@@ -309,26 +388,40 @@ export class ProductService {
   async updateStock(productId: string, quantity: number, operation: 'add' | 'subtract' = 'add') {
     const product = await this.prisma.product.findUnique({
       where: { id: productId },
+      include: {
+        masterProduct: true,
+      },
     });
 
     if (!product) {
       throw new NotFoundException('Product not found');
     }
 
-    const newStock = operation === 'add' 
-      ? product.stockQty + quantity 
-      : product.stockQty - quantity;
+    // If this is a variant, update the master's stock instead
+    const targetProductId = product.masterProductId || productId;
+    const targetProduct = product.masterProductId ? product.masterProduct : product;
+
+    if (!targetProduct) {
+      throw new NotFoundException('Target product not found');
+    }
+
+    const currentStock = targetProduct.stockQty;
+    const newStock = operation === 'add'
+      ? currentStock + quantity
+      : currentStock - quantity;
 
     if (newStock < 0) {
       throw new BadRequestException('Insufficient stock');
     }
 
     const updatedProduct = await this.prisma.product.update({
-      where: { id: productId },
+      where: { id: targetProductId },
       data: { stockQty: newStock },
     });
 
-    this.logger.log(`Stock updated for product ${product.sku}: ${product.stockQty} -> ${newStock}`);
+    this.logger.log(
+      `Stock updated for ${product.masterProductId ? `variant ${product.sku} (master: ${targetProduct.sku})` : `product ${product.sku}`}: ${currentStock} -> ${newStock}`
+    );
 
     return updatedProduct;
   }
@@ -579,5 +672,220 @@ export class ProductService {
       compatibleProducts: compatibleProductsList,
       total: compatibleProductsList.length,
     };
+  }
+
+  // Master-Variant Product Methods
+
+  async toggleMasterVisibility(productId: string, isVisible: boolean) {
+    // Verify product exists and is a master product
+    const product = await this.prisma.product.findUnique({
+      where: { id: productId },
+    });
+
+    if (!product) {
+      throw new NotFoundException('Product not found');
+    }
+
+    if (!product.isMaster) {
+      throw new BadRequestException('Product is not a master product');
+    }
+
+    try {
+      const updatedProduct = await this.prisma.product.update({
+        where: { id: productId },
+        data: { isVisible },
+        include: {
+          brand: { select: { name: true } },
+          category: { select: { name: true } },
+          variants: {
+            select: {
+              id: true,
+              sku: true,
+              name: true,
+              nameTh: true,
+            },
+          },
+        },
+      });
+
+      this.logger.log(`Master product visibility toggled: ${product.sku} - isVisible: ${isVisible}`);
+
+      return {
+        message: `Master product ${isVisible ? 'shown' : 'hidden'} successfully`,
+        product: updatedProduct,
+      };
+    } catch (error) {
+      this.logger.error(`Error toggling visibility for product ${productId}: ${error.message}`, error);
+      throw new BadRequestException('Failed to toggle master product visibility');
+    }
+  }
+
+  async createVariant(masterId: string, createVariantDto: CreateVariantDto) {
+    // Verify master product exists and is a master
+    const masterProduct = await this.prisma.product.findUnique({
+      where: { id: masterId },
+      include: {
+        brand: true,
+        category: true,
+      },
+    });
+
+    if (!masterProduct) {
+      throw new NotFoundException('Master product not found');
+    }
+
+    if (!masterProduct.isMaster) {
+      throw new BadRequestException('Product is not a master product');
+    }
+
+    // Check if SKU already exists
+    const existingSku = await this.prisma.product.findUnique({
+      where: { sku: createVariantDto.sku },
+    });
+
+    if (existingSku) {
+      throw new ConflictException('Product with this SKU already exists');
+    }
+
+    // Check if barcode already exists (if provided)
+    if (createVariantDto.barcode) {
+      const existingBarcode = await this.prisma.product.findUnique({
+        where: { barcode: createVariantDto.barcode },
+      });
+
+      if (existingBarcode) {
+        throw new ConflictException('Product with this barcode already exists');
+      }
+    }
+
+    try {
+      // Create variant product
+      // Variants share the master's stock, so stockQty is ignored
+      // Variants inherit master's category, brand, costPrice
+      const variant = await this.prisma.product.create({
+        data: {
+          sku: createVariantDto.sku,
+          name: createVariantDto.name,
+          nameTh: createVariantDto.nameTh,
+          description: createVariantDto.description,
+          descriptionTh: createVariantDto.descriptionTh,
+          barcode: createVariantDto.barcode,
+          imageUrl: createVariantDto.imageUrl,
+
+          // Inherit from master
+          categoryId: masterProduct.categoryId,
+          brandId: masterProduct.brandId,
+          costPrice: masterProduct.costPrice,
+
+          // Variant-specific or inherit from master
+          sellPrice: createVariantDto.sellPrice || masterProduct.sellPrice,
+
+          // Stock management: variants don't have their own stock
+          stockQty: 0, // Not used; stock is managed via master
+          minStock: 0, // Not used; threshold is on master
+
+          // Master-variant relationship
+          isMaster: false,
+          isVisible: true, // Variants are always visible
+          masterProductId: masterId,
+        },
+        include: {
+          brand: { select: { name: true } },
+          category: { select: { name: true } },
+          masterProduct: {
+            select: {
+              id: true,
+              sku: true,
+              name: true,
+              stockQty: true,
+            },
+          },
+        },
+      });
+
+      this.logger.log(`Variant created: ${variant.sku} for master ${masterProduct.sku}`);
+
+      return variant;
+    } catch (error) {
+      if (error instanceof ConflictException) {
+        throw error;
+      }
+      this.logger.error(`Error creating variant for master ${masterId}: ${error.message}`, error);
+      throw new BadRequestException('Failed to create variant product');
+    }
+  }
+
+  async getVariants(masterId: string) {
+    // Verify master product exists
+    const masterProduct = await this.prisma.product.findUnique({
+      where: { id: masterId },
+    });
+
+    if (!masterProduct) {
+      throw new NotFoundException('Master product not found');
+    }
+
+    if (!masterProduct.isMaster) {
+      throw new BadRequestException('Product is not a master product');
+    }
+
+    // Get all variant products
+    const variants = await this.prisma.product.findMany({
+      where: {
+        masterProductId: masterId,
+        isActive: true,
+      },
+      include: {
+        brand: { select: { name: true } },
+        category: { select: { name: true } },
+      },
+      orderBy: { name: 'asc' },
+    });
+
+    return {
+      master: {
+        id: masterProduct.id,
+        sku: masterProduct.sku,
+        name: masterProduct.name,
+        nameTh: masterProduct.nameTh,
+        stockQty: masterProduct.stockQty,
+        isVisible: masterProduct.isVisible,
+      },
+      variants,
+      total: variants.length,
+    };
+  }
+
+  /**
+   * Get the actual stock for a product (master or variant)
+   * For variants, returns the master's stock
+   */
+  async getActualStock(productId: string): Promise<number> {
+    const product = await this.prisma.product.findUnique({
+      where: { id: productId },
+      select: {
+        id: true,
+        stockQty: true,
+        isMaster: true,
+        masterProductId: true,
+        masterProduct: {
+          select: {
+            stockQty: true,
+          },
+        },
+      },
+    });
+
+    if (!product) {
+      throw new NotFoundException('Product not found');
+    }
+
+    // If it's a variant, return the master's stock
+    if (product.masterProductId && product.masterProduct) {
+      return product.masterProduct.stockQty;
+    }
+
+    // Otherwise, return the product's own stock
+    return product.stockQty;
   }
 }

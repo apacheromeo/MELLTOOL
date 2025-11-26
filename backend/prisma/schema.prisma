@@ -116,7 +116,14 @@ model Product {
   // Status
   isActive    Boolean  @default(true)
   isDigital   Boolean  @default(false) // For digital products
-  
+
+  // Master-Variant System
+  isMaster         Boolean  @default(false) // Is this a master product?
+  isVisible        Boolean  @default(true)  // Is master product visible in listings?
+  masterProductId  String?                  // Link to master product (for variants)
+  masterProduct    Product? @relation("ProductVariants", fields: [masterProductId], references: [id])
+  variants         Product[] @relation("ProductVariants")
+
   // Timestamps
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -149,6 +156,9 @@ model Product {
   @@index([categoryId, isActive])
   @@index([brandId, isActive])
   @@index([stockQty, minStock])
+  @@index([isMaster])
+  @@index([masterProductId])
+  @@index([isMaster, isVisible])
   @@map("products")
 }
 
