@@ -36,6 +36,7 @@ import { CreateBrandDto } from './dto/create-brand.dto';
 import { UpdateBrandDto } from './dto/update-brand.dto';
 import { SearchProductsDto } from './dto/search-products.dto';
 import { GenerateBarcodeDto } from './dto/generate-barcode.dto';
+import { AddProductCompatibilityDto } from './dto/add-product-compatibility.dto';
 
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
@@ -245,6 +246,47 @@ export class InventoryController {
 
     this.logger.log(`Uploading image for product: ${id}, file: ${file.originalname}`);
     return this.productService.uploadImage(id, file);
+  }
+
+  // Product Compatibility
+  @Post('products/:id/compatibility')
+  @Roles(UserRole.OWNER, UserRole.MOD)
+  @ApiOperation({ summary: 'Add compatible products to a product' })
+  @ApiResponse({ status: 200, description: 'Compatible products added successfully' })
+  @ApiResponse({ status: 400, description: 'Invalid request' })
+  @ApiResponse({ status: 404, description: 'Product not found' })
+  async addProductCompatibility(
+    @Param('id') id: string,
+    @Body() addCompatibilityDto: AddProductCompatibilityDto,
+  ) {
+    this.logger.log(`Adding compatibility for product: ${id}`);
+    return this.productService.addCompatibility(
+      id,
+      addCompatibilityDto.compatibleProductIds,
+      addCompatibilityDto.notes,
+    );
+  }
+
+  @Get('products/:id/compatibility')
+  @ApiOperation({ summary: 'Get all compatible products for a product' })
+  @ApiResponse({ status: 200, description: 'Compatible products retrieved successfully' })
+  @ApiResponse({ status: 404, description: 'Product not found' })
+  async getProductCompatibility(@Param('id') id: string) {
+    this.logger.log(`Getting compatibility for product: ${id}`);
+    return this.productService.getCompatibleProducts(id);
+  }
+
+  @Delete('products/:id/compatibility/:compatibleId')
+  @Roles(UserRole.OWNER, UserRole.MOD)
+  @ApiOperation({ summary: 'Remove a product compatibility relationship' })
+  @ApiResponse({ status: 200, description: 'Compatibility removed successfully' })
+  @ApiResponse({ status: 404, description: 'Compatibility not found' })
+  async removeProductCompatibility(
+    @Param('id') id: string,
+    @Param('compatibleId') compatibleId: string,
+  ) {
+    this.logger.log(`Removing compatibility: ${id} <-> ${compatibleId}`);
+    return this.productService.removeCompatibility(id, compatibleId);
   }
 
   // Categories

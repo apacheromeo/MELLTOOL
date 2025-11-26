@@ -416,4 +416,168 @@ export class ProductService {
       imageUrl,
     };
   }
+
+  // Product Compatibility Methods
+
+  async addCompatibility(productId: string, compatibleProductIds: string[], notes?: string) {
+    // Verify main product exists
+    const product = await this.prisma.product.findUnique({
+      where: { id: productId },
+    });
+
+    if (!product) {
+      throw new NotFoundException('Product not found');
+    }
+
+    // Verify all compatible products exist
+    const compatibleProducts = await this.prisma.product.findMany({
+      where: {
+        id: { in: compatibleProductIds },
+        isActive: true,
+      },
+    });
+
+    if (compatibleProducts.length !== compatibleProductIds.length) {
+      throw new BadRequestException('One or more compatible products not found or inactive');
+    }
+
+    // Remove productId from compatibleProductIds if it exists (can't be compatible with itself)
+    const filteredIds = compatibleProductIds.filter(id => id !== productId);
+
+    if (filteredIds.length === 0) {
+      throw new BadRequestException('A product cannot be compatible with itself');
+    }
+
+    // Create compatibility records
+    // Note: We create the relationship in both directions for easier querying
+    const compatibilityRecords = filteredIds.map(compatibleId => ({
+      productId,
+      compatibleProductId: compatibleId,
+      notes: notes || null,
+    }));
+
+    try {
+      // Use createMany with skipDuplicates to avoid conflicts
+      const result = await this.prisma.productCompatibility.createMany({
+        data: compatibilityRecords,
+        skipDuplicates: true,
+      });
+
+      this.logger.log(`Added ${result.count} compatibility relationships for product ${product.sku}`);
+
+      // Return the updated compatibility list
+      return this.getCompatibleProducts(productId);
+    } catch (error) {
+      this.logger.error(`Error adding compatibility for product ${productId}: ${error.message}`, error);
+      throw new BadRequestException('Failed to add product compatibility');
+    }
+  }
+
+  async removeCompatibility(productId: string, compatibleProductId: string) {
+    // Verify the compatibility exists
+    const compatibility = await this.prisma.productCompatibility.findFirst({
+      where: {
+        productId,
+        compatibleProductId,
+      },
+    });
+
+    if (!compatibility) {
+      throw new NotFoundException('Compatibility relationship not found');
+    }
+
+    try {
+      // Delete the compatibility record
+      await this.prisma.productCompatibility.delete({
+        where: { id: compatibility.id },
+      });
+
+      this.logger.log(`Removed compatibility: ${productId} <-> ${compatibleProductId}`);
+
+      return { message: 'Compatibility removed successfully' };
+    } catch (error) {
+      this.logger.error(`Error removing compatibility: ${error.message}`, error);
+      throw new BadRequestException('Failed to remove product compatibility');
+    }
+  }
+
+  async getCompatibleProducts(productId: string) {
+    // Verify product exists
+    const product = await this.prisma.product.findUnique({
+      where: { id: productId },
+    });
+
+    if (!product) {
+      throw new NotFoundException('Product not found');
+    }
+
+    // Get all compatibility relationships where this product is either the main product or the compatible product
+    const compatibilities = await this.prisma.productCompatibility.findMany({
+      where: {
+        OR: [
+          { productId },
+          { compatibleProductId: productId },
+        ],
+      },
+      include: {
+        product: {
+          select: {
+            id: true,
+            sku: true,
+            name: true,
+            nameTh: true,
+            imageUrl: true,
+            sellPrice: true,
+            stockQty: true,
+            brand: { select: { name: true } },
+            category: { select: { name: true } },
+          },
+        },
+        compatibleProduct: {
+          select: {
+            id: true,
+            sku: true,
+            name: true,
+            nameTh: true,
+            imageUrl: true,
+            sellPrice: true,
+            stockQty: true,
+            brand: { select: { name: true } },
+            category: { select: { name: true } },
+          },
+        },
+      },
+    });
+
+    // Extract the compatible products (the "other" product in each relationship)
+    const compatibleProductsList = compatibilities.map(comp => {
+      // If this product is the main product, return the compatible product
+      if (comp.productId === productId) {
+        return {
+          ...comp.compatibleProduct,
+          compatibilityId: comp.id,
+          notes: comp.notes,
+          createdAt: comp.createdAt,
+        };
+      }
+      // If this product is the compatible product, return the main product
+      return {
+        ...comp.product,
+        compatibilityId: comp.id,
+        notes: comp.notes,
+        createdAt: comp.createdAt,
+      };
+    });
+
+    return {
+      product: {
+        id: product.id,
+        sku: product.sku,
+        name: product.name,
+        nameTh: product.nameTh,
+      },
+      compatibleProducts: compatibleProductsList,
+      total: compatibleProductsList.length,
+    };
+  }
 }

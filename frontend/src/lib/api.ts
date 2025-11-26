@@ -156,6 +156,24 @@ class ApiClient {
     return response.json();
   }
 
+  // Product Compatibility endpoints
+  async getProductCompatibility(productId: string) {
+    return this.request(`/inventory/products/${productId}/compatibility`);
+  }
+
+  async addProductCompatibility(productId: string, compatibleProductIds: string[], notes?: string) {
+    return this.request(`/inventory/products/${productId}/compatibility`, {
+      method: 'POST',
+      body: JSON.stringify({ compatibleProductIds, notes }),
+    });
+  }
+
+  async removeProductCompatibility(productId: string, compatibleProductId: string) {
+    return this.request(`/inventory/products/${productId}/compatibility/${compatibleProductId}`, {
+      method: 'DELETE',
+    });
+  }
+
   async getCategories(brandId?: string) {
     const url = brandId
       ? `/inventory/categories?brand=${brandId}`

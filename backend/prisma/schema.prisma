@@ -133,6 +133,11 @@ model Product {
   printJobProducts PrintJobProduct[]
   salesItems SalesItem[]
 
+  // Product Compatibility - Products this product is compatible with
+  compatibleWith ProductCompatibility[] @relation("ProductCompatibilities")
+  // Products that list this product as compatible
+  compatibleFor  ProductCompatibility[] @relation("CompatibleProducts")
+
   @@index([sku])
   @@index([name])
   @@index([barcode])
@@ -145,6 +150,32 @@ model Product {
   @@index([brandId, isActive])
   @@index([stockQty, minStock])
   @@map("products")
+}
+
+// Product Compatibility - Junction table for many-to-many relationship
+model ProductCompatibility {
+  id          String   @id @default(cuid())
+
+  // The main product
+  productId   String
+  product     Product  @relation("ProductCompatibilities", fields: [productId], references: [id], onDelete: Cascade)
+
+  // The compatible product
+  compatibleProductId String
+  compatibleProduct   Product @relation("CompatibleProducts", fields: [compatibleProductId], references: [id], onDelete: Cascade)
+
+  // Optional: Notes about the compatibility relationship
+  notes       String?
+
+  // Timestamps
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Ensure we don't have duplicate relationships
+  @@unique([productId, compatibleProductId])
+  @@index([productId])
+  @@index([compatibleProductId])
+  @@map("product_compatibilities")
 }
 
 // Stock In (Buy-In) Management
