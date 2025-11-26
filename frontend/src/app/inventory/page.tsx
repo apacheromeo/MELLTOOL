@@ -34,6 +34,7 @@ export default function InventoryPage() {
     minStock: '',
     barcode: '',
     imageUrl: '',
+    isMaster: false,
   })
   const [imagePreview, setImagePreview] = useState<string | null>(null)
   const [imageFile, setImageFile] = useState<File | null>(null)
@@ -123,6 +124,7 @@ export default function InventoryPage() {
       minStock: product.minStock?.toString() || '',
       barcode: product.barcode || '',
       imageUrl: product.imageUrl || '',
+      isMaster: product.isMaster || false,
     })
     // Show existing image as preview, but no file selected yet
     const fullImageUrl = product.imageUrl
@@ -220,6 +222,7 @@ export default function InventoryPage() {
       minStock: '',
       barcode: '',
       imageUrl: '',
+      isMaster: false,
     })
   }
 
@@ -818,6 +821,36 @@ export default function InventoryPage() {
                   </div>
                 </div>
 
+                {/* Master Product Option */}
+                {hasAccess && (
+                  <div className="mt-6 p-4 bg-purple-50 border-2 border-purple-200 rounded-xl">
+                    <div className="flex items-start gap-3">
+                      <input
+                        type="checkbox"
+                        id="isMaster"
+                        checked={formData.isMaster}
+                        onChange={(e) => setFormData({ ...formData, isMaster: e.target.checked })}
+                        className="mt-1 h-5 w-5 text-purple-600 focus:ring-purple-500 border-gray-300 rounded cursor-pointer"
+                      />
+                      <div className="flex-1">
+                        <label htmlFor="isMaster" className="block text-sm font-semibold text-purple-900 cursor-pointer">
+                          Master Product (Shared Inventory)
+                        </label>
+                        <p className="text-xs text-purple-700 mt-1">
+                          Enable this for products that will have multiple variants sharing the same physical stock.
+                          <br />
+                          <span className="font-medium">Example:</span> One HEPA filter that fits multiple vacuum models.
+                        </p>
+                        {formData.isMaster && (
+                          <div className="mt-2 p-2 bg-purple-100 rounded text-xs text-purple-800">
+                            💡 After creating this master product, use the <strong>"Master-Variant"</strong> panel to add variant products.
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 {/* Profit Preview - Only for OWNER */}
                 {user?.role === 'OWNER' && formData.costPrice && formData.sellPrice && (
                   <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-xl">
@@ -1130,8 +1163,21 @@ function ProductCard({ product, onDelete, onEdit, onCompatibility, userRole }: a
           {product.nameTh && (
             <p className="text-sm text-gray-600 mb-2">{product.nameTh}</p>
           )}
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <span className="text-xs px-2 py-1 rounded bg-gray-100 text-gray-700 font-mono">{product.sku}</span>
+            {product.isMaster && (
+              <span className="text-xs px-2 py-1 rounded bg-purple-100 text-purple-700 font-semibold flex items-center gap-1">
+                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4" />
+                </svg>
+                Master
+              </span>
+            )}
+            {product.masterProductId && (
+              <span className="text-xs px-2 py-1 rounded bg-blue-100 text-blue-700 font-semibold">
+                Variant
+              </span>
+            )}
           </div>
         </div>
         <span className={`badge ${
