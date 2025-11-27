@@ -14,6 +14,10 @@ export default function MasterVariantManagementModal({ onClose, onUpdate }: Mast
   const [selectedMaster, setSelectedMaster] = useState<any>(null)
   const [variants, setVariants] = useState<any[]>([])
   const [showCreateVariant, setShowCreateVariant] = useState(false)
+  const [showLinkExisting, setShowLinkExisting] = useState(false)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [searchResults, setSearchResults] = useState<any[]>([])
+  const [searching, setSearching] = useState(false)
   const [variantForm, setVariantForm] = useState({
     sku: '',
     name: '',
@@ -56,6 +60,59 @@ export default function MasterVariantManagementModal({ onClose, onUpdate }: Mast
     setSelectedMaster(master)
     loadVariants(master.id)
     setShowCreateVariant(false)
+    setShowLinkExisting(false)
+    setSearchQuery('')
+    setSearchResults([])
+  }
+
+  const handleSearchProducts = async (query: string) => {
+    setSearchQuery(query)
+
+    if (query.length < 2) {
+      setSearchResults([])
+      return
+    }
+
+    try {
+      setSearching(true)
+      const response = await api.getProducts({ search: query, limit: 20 })
+      // Filter out: 1) master products, 2) products already linked as variants, 3) selected master
+      const variantIds = variants.map(v => v.id)
+      const filtered = response.products.filter((p: any) =>
+        !p.isMaster &&
+        !p.masterProductId &&
+        !variantIds.includes(p.id) &&
+        p.id !== selectedMaster?.id
+      )
+      setSearchResults(filtered)
+    } catch (err) {
+      console.error('Failed to search products:', err)
+      setSearchResults([])
+    } finally {
+      setSearching(false)
+    }
+  }
+
+  const handleLinkExistingProduct = async (productId: string) => {
+    if (!selectedMaster) {
+      alert('Please select a master product first')
+      return
+    }
+
+    try {
+      // Update the product to link it as a variant
+      await api.updateProduct(productId, { masterProductId: selectedMaster.id })
+      alert('Product linked as variant successfully!')
+
+      // Reset and reload
+      setShowLinkExisting(false)
+      setSearchQuery('')
+      setSearchResults([])
+      loadVariants(selectedMaster.id)
+      onUpdate()
+    } catch (err: any) {
+      alert('Failed to link product: ' + err.message)
+    }
   }
 
   const handleToggleVisibility = async (master: any) => {
@@ -209,12 +266,34 @@ export default function MasterVariantManagementModal({ onClose, onUpdate }: Mast
 
                   <div className="flex justify-between items-center mb-4">
                     <h3 className="text-lg font-semibold text-gray-900">Variants</h3>
-                    <button
-                      onClick={() => setShowCreateVariant(!showCreateVariant)}
-                      className="btn-primary text-sm px-4 py-2"
-                    >
-                      {showCreateVariant ? 'Cancel' : '+ Add Variant'}
-                    </button>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => {
+                          setShowCreateVariant(!showCreateVariant)
+                          if (!showCreateVariant) setShowLinkExisting(false)
+                        }}
+                        className={`text-sm px-4 py-2 rounded-lg font-semibold transition-colors ${
+                          showCreateVariant
+                            ? 'bg-gray-200 text-gray-700'
+                            : 'bg-blue-600 text-white hover:bg-blue-700'
+                        }`}
+                      >
+                        {showCreateVariant ? 'Cancel' : '+ Create New'}
+                      </button>
+                      <button
+                        onClick={() => {
+                          setShowLinkExisting(!showLinkExisting)
+                          if (!showLinkExisting) setShowCreateVariant(false)
+                        }}
+                        className={`text-sm px-4 py-2 rounded-lg font-semibold transition-colors ${
+                          showLinkExisting
+                            ? 'bg-gray-200 text-gray-700'
+                            : 'bg-green-600 text-white hover:bg-green-700'
+                        }`}
+                      >
+                        {showLinkExisting ? 'Cancel' : '+ Link Existing'}
+                      </button>
+                    </div>
                   </div>
 
                   {showCreateVariant && (
@@ -285,6 +364,85 @@ export default function MasterVariantManagementModal({ onClose, onUpdate }: Mast
                         </button>
                       </div>
                     </form>
+                  )}
+
+                  {showLinkExisting && (
+                    <div className="bg-green-50 rounded-lg p-4 mb-4 border border-green-200">
+                      <h4 className="font-semibold text-gray-900 mb-3">Link Existing Product as Variant</h4>
+                      <div className="space-y-3">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Search Products
+                          </label>
+                          <div className="relative">
+                            <input
+                              type="text"
+                              className="input-field pr-10"
+                              value={searchQuery}
+                              onChange={(e) => handleSearchProducts(e.target.value)}
+                              placeholder="Search by name, SKU, or barcode..."
+                            />
+                            {searching && (
+                              <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-green-600"></div>
+                              </div>
+                            )}
+                          </div>
+                          <p className="text-xs text-gray-500 mt-1">
+                            Type at least 2 characters to search. Only independent products (not already linked) will be shown.
+                          </p>
+                        </div>
+
+                        {searchQuery.length >= 2 && (
+                          <div className="max-h-60 overflow-y-auto border border-gray-200 rounded-lg">
+                            {searchResults.length === 0 ? (
+                              <div className="p-4 text-center text-gray-500 text-sm">
+                                {searching ? 'Searching...' : 'No products found'}
+                              </div>
+                            ) : (
+                              <div className="divide-y divide-gray-200">
+                                {searchResults.map((product) => (
+                                  <div
+                                    key={product.id}
+                                    className="p-3 hover:bg-gray-50 cursor-pointer flex items-start justify-between gap-3"
+                                    onClick={() => {
+                                      if (confirm(`Link "${product.name}" as a variant of "${selectedMaster.name}"?`)) {
+                                        handleLinkExistingProduct(product.id)
+                                      }
+                                    }}
+                                  >
+                                    <div className="flex-1 min-w-0">
+                                      <p className="font-medium text-gray-900 truncate">{product.name}</p>
+                                      {product.nameTh && (
+                                        <p className="text-sm text-gray-600 truncate">{product.nameTh}</p>
+                                      )}
+                                      <div className="flex gap-3 mt-1 text-xs text-gray-500">
+                                        <span>SKU: {product.sku}</span>
+                                        {product.barcode && <span>Barcode: {product.barcode}</span>}
+                                      </div>
+                                      <p className="text-xs text-orange-600 mt-1">
+                                        Stock: {product.stockQty} units (will be managed by master after linking)
+                                      </p>
+                                    </div>
+                                    <button
+                                      className="flex-shrink-0 px-3 py-1 text-xs font-semibold bg-green-600 text-white rounded hover:bg-green-700"
+                                      onClick={(e) => {
+                                        e.stopPropagation()
+                                        if (confirm(`Link "${product.name}" as a variant?`)) {
+                                          handleLinkExistingProduct(product.id)
+                                        }
+                                      }}
+                                    >
+                                      Link
+                                    </button>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    </div>
                   )}
 
                   <div className="space-y-2 max-h-[400px] overflow-y-auto">
