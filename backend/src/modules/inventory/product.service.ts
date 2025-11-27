@@ -311,12 +311,54 @@ export class ProductService {
     }
 
     try {
+      // Special handling: If linking a product to a master (converting to variant)
+      if (updateProductDto.masterProductId && !product.masterProductId) {
+        // This product is being converted to a variant
+        const master = await this.prisma.product.findUnique({
+          where: { id: updateProductDto.masterProductId },
+        });
+
+        if (!master) {
+          throw new BadRequestException('Master product not found');
+        }
+
+        if (!master.isMaster) {
+          throw new BadRequestException('Target product is not a master product');
+        }
+
+        // Transfer variant's stock to master and zero out variant's stock
+        await this.prisma.product.update({
+          where: { id: updateProductDto.masterProductId },
+          data: {
+            stockQty: master.stockQty + product.stockQty,
+          },
+        });
+
+        this.logger.log(
+          `Transferred ${product.stockQty} units from variant ${product.sku} to master ${master.sku}. Master stock: ${master.stockQty} -> ${master.stockQty + product.stockQty}`
+        );
+
+        // Set variant's stock to 0 (will be managed by master)
+        updateProductDto = {
+          ...updateProductDto,
+          stockQty: 0,
+        };
+      }
+
       const updatedProduct = await this.prisma.product.update({
         where: { id },
         data: updateProductDto,
         include: {
           brand: { select: { name: true } },
           category: { select: { name: true } },
+          masterProduct: {
+            select: {
+              id: true,
+              sku: true,
+              name: true,
+              stockQty: true,
+            },
+          },
         },
       });
 

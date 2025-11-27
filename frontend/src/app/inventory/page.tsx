@@ -1120,13 +1120,23 @@ export default function InventoryPage() {
 }
 
 function ProductCard({ product, onDelete, onEdit, onCompatibility, userRole }: any) {
-  const stockStatus = product.stockQty <= product.minStock ? 'low' : 'good'
+  // For variants, use master's stock; otherwise use product's own stock
+  const actualStock = product.masterProductId && product.masterProduct
+    ? product.masterProduct.stockQty
+    : product.stockQty
+
+  const actualMinStock = product.masterProductId && product.masterProduct
+    ? 0  // Variants don't have their own minStock threshold
+    : product.minStock
+
+  const stockStatus = actualStock <= actualMinStock ? 'low' : 'good'
   const canSeeCost = userRole === 'OWNER' // Only OWNER can see cost/profit
+
   // Calculate percentage: if minStock is 0 or undefined, show 100% if stock exists, else 0%
   // Otherwise, show current stock as percentage of (minStock * 2) for visual representation
-  const stockPercentage = product.minStock > 0
-    ? Math.min((product.stockQty / (product.minStock * 2)) * 100, 100)
-    : (product.stockQty > 0 ? 100 : 0)
+  const stockPercentage = actualMinStock > 0
+    ? Math.min((actualStock / (actualMinStock * 2)) * 100, 100)
+    : (actualStock > 0 ? 100 : 0)
   
   return (
     <div className="card p-6 card-hover">
