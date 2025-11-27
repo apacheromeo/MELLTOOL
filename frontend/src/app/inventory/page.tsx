@@ -76,6 +76,18 @@ export default function InventoryPage() {
       setLoading(true)
       setError(null)
       const data = await api.getProducts({ page, limit: 21, search })
+
+      // Debug: Log products with masterProductId to see API response
+      const variantProducts = (data.products || []).filter((p: any) => p.masterProductId)
+      if (variantProducts.length > 0) {
+        console.log('📦 API Response - Variant Products:', variantProducts.map((p: any) => ({
+          sku: p.sku,
+          masterProductId: p.masterProductId,
+          hasMasterData: !!p.masterProduct,
+          masterProduct: p.masterProduct
+        })))
+      }
+
       setProducts(data.products || [])
       setPagination(data.pagination)
     } catch (err: any) {
@@ -1120,6 +1132,19 @@ export default function InventoryPage() {
 }
 
 function ProductCard({ product, onDelete, onEdit, onCompatibility, userRole }: any) {
+  // Debug logging for master-variant stock
+  if (product.masterProductId) {
+    console.log('🔍 Variant Product Debug:', {
+      sku: product.sku,
+      name: product.name,
+      masterProductId: product.masterProductId,
+      hasMasterProductData: !!product.masterProduct,
+      masterProduct: product.masterProduct,
+      ownStockQty: product.stockQty,
+      masterStockQty: product.masterProduct?.stockQty
+    })
+  }
+
   // For variants, use master's stock; otherwise use product's own stock
   const actualStock = product.masterProductId && product.masterProduct
     ? product.masterProduct.stockQty
