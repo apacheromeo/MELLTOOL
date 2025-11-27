@@ -1226,7 +1226,7 @@ function ProductCard({ product, onDelete, onEdit, onCompatibility, userRole }: a
       <div className="mb-4">
         <div className="flex justify-between text-xs text-gray-600 mb-1">
           <span>Stock Level</span>
-          <span className="font-semibold text-gray-900">{product.stockQty} units</span>
+          <span className="font-semibold text-gray-900">{actualStock} units</span>
         </div>
         <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
           <div 
