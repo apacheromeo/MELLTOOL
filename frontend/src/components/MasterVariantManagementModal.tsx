@@ -115,6 +115,26 @@ export default function MasterVariantManagementModal({ onClose, onUpdate }: Mast
     }
   }
 
+  const handleUnlinkVariant = async (variantId: string, variantName: string) => {
+    if (!confirm(`Are you sure you want to unlink "${variantName}" from this master product?`)) {
+      return
+    }
+
+    try {
+      // Update the product to remove masterProductId
+      await api.updateProduct(variantId, { masterProductId: null })
+      alert('Variant unlinked successfully!')
+
+      // Reload variants and notify parent
+      if (selectedMaster) {
+        loadVariants(selectedMaster.id)
+      }
+      onUpdate()
+    } catch (err: any) {
+      alert('Failed to unlink variant: ' + err.message)
+    }
+  }
+
   const handleToggleVisibility = async (master: any) => {
     try {
       const newVisibility = !master.isVisible
@@ -473,7 +493,15 @@ export default function MasterVariantManagementModal({ onClose, onUpdate }: Mast
                                 </p>
                               )}
                             </div>
-                            <span className="badge badge-blue">Variant</span>
+                            <div className="flex flex-col items-end gap-2">
+                              <span className="badge badge-blue">Variant</span>
+                              <button
+                                onClick={() => handleUnlinkVariant(variant.id, variant.name)}
+                                className="text-xs px-3 py-1 rounded-lg font-medium bg-red-100 text-red-700 hover:bg-red-200 transition-colors"
+                              >
+                                Unlink
+                              </button>
+                            </div>
                           </div>
                         </div>
                       ))
