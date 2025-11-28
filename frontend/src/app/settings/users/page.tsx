@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { api } from '@/lib/api'
 import Sidebar from '@/components/Sidebar'
+import { useRoleGuard } from '@/hooks/useRoleGuard'
 
 interface User {
   id: string
@@ -16,6 +17,7 @@ interface User {
 }
 
 export default function UsersPage() {
+  useRoleGuard(['OWNER', 'MOD'])
   const [users, setUsers] = useState<User[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -62,7 +64,7 @@ export default function UsersPage() {
     switch (role) {
       case 'OWNER':
         return 'bg-purple-100 text-purple-800'
-      case 'MANAGER':
+      case 'MOD':
         return 'bg-blue-100 text-blue-800'
       case 'STAFF':
         return 'bg-green-100 text-green-800'

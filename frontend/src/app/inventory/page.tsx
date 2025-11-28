@@ -299,7 +299,7 @@ export default function InventoryPage() {
                 </svg>
                 Import from Excel
               </button>
-              {user?.role === 'OWNER' && (
+              {(user?.role === 'OWNER' || user?.role === 'MOD') && (
                 <button
                   type="button"
                   onClick={async () => {
@@ -768,8 +768,8 @@ export default function InventoryPage() {
                     </select>
                   </div>
 
-                  {/* Cost Price - Only for OWNER */}
-                  {user?.role === 'OWNER' && (
+                  {/* Cost Price - Only for OWNER and MOD */}
+                  {(user?.role === 'OWNER' || user?.role === 'MOD') && (
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">
                         Cost Price (฿) *
@@ -863,8 +863,8 @@ export default function InventoryPage() {
                   </div>
                 )}
 
-                {/* Profit Preview - Only for OWNER */}
-                {user?.role === 'OWNER' && formData.costPrice && formData.sellPrice && (
+                {/* Profit Preview - Only for OWNER and MOD */}
+                {(user?.role === 'OWNER' || user?.role === 'MOD') && formData.costPrice && formData.sellPrice && (
                   <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-xl">
                     <div className="flex items-center justify-between">
                       <span className="text-sm font-medium text-gray-700">Profit per unit:</span>
@@ -1155,7 +1155,7 @@ function ProductCard({ product, onDelete, onEdit, onCompatibility, userRole }: a
     : product.minStock
 
   const stockStatus = actualStock <= actualMinStock ? 'low' : 'good'
-  const canSeeCost = userRole === 'OWNER' // Only OWNER can see cost/profit
+  const canSeeCost = userRole === 'OWNER' || userRole === 'MOD' // OWNER and MOD can see cost/profit
 
   // Calculate percentage: if minStock is 0 or undefined, show 100% if stock exists, else 0%
   // Otherwise, show current stock as percentage of (minStock * 2) for visual representation
