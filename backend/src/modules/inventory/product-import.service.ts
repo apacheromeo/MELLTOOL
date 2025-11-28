@@ -428,7 +428,7 @@ export class ProductImportService {
       'brand name': 'brand',
     };
 
-    return mappings[normalized] || header; // Return mapped name or preserve original
+    return mappings[normalized] || normalized; // Return mapped name or normalized version
   }
 
   /**
