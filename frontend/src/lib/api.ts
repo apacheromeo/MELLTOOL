@@ -578,7 +578,11 @@ class ApiClient {
     startDate?: string;
     endDate?: string;
   }) {
-    const query = new URLSearchParams(params as any).toString();
+    // Filter out undefined values to prevent "undefined" string in query params
+    const filteredParams = Object.entries(params || {})
+      .filter(([_, value]) => value !== undefined)
+      .reduce((acc, [key, value]) => ({ ...acc, [key]: value }), {});
+    const query = new URLSearchParams(filteredParams as any).toString();
     return this.request(`/sales?${query}`);
   }
 
