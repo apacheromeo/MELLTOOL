@@ -238,19 +238,6 @@ export class SalesController {
   }
 
   /**
-   * GET /api/sales/:orderId
-   * Get sales order details
-   * NOTE: Must be LAST among GET routes to avoid catching other paths
-   */
-  @Get(':orderId')
-  @ApiOperation({ summary: 'Get sales order by ID' })
-  @ApiResponse({ status: 200, description: 'Order details' })
-  @ApiResponse({ status: 404, description: 'Order not found' })
-  async getOrder(@Param('orderId') orderId: string) {
-    return this.salesService.getOrderById(orderId);
-  }
-
-  /**
    * GET /api/sales/pos/products/search
    * Search products for POS (fast, optimized for quick add)
    */
@@ -305,6 +292,19 @@ export class SalesController {
     @Query('limit') limit?: number,
   ) {
     return this.salesService.getProductsByCategory(categoryId, limit || 20);
+  }
+
+  /**
+   * GET /api/sales/:orderId
+   * Get sales order details
+   * NOTE: MUST be LAST among GET routes to avoid catching other paths
+   */
+  @Get(':orderId')
+  @ApiOperation({ summary: 'Get sales order by ID' })
+  @ApiResponse({ status: 200, description: 'Order details' })
+  @ApiResponse({ status: 404, description: 'Order not found' })
+  async getOrder(@Param('orderId') orderId: string) {
+    return this.salesService.getOrderById(orderId);
   }
 
   /**
