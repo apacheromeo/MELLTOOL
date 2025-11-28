@@ -224,11 +224,15 @@ export class SalesController {
     @Query('endDate') endDate?: string,
   ) {
     try {
+      // Filter out "undefined" string that may come from frontend
+      const cleanStatus = status === 'undefined' ? undefined : status;
+      const cleanStaffId = staffId === 'undefined' ? undefined : staffId;
+
       return await this.salesService.getSalesHistory({
         page: page ? Number(page) : undefined,
         limit: limit ? Number(limit) : undefined,
-        status,
-        staffId,
+        status: cleanStatus,
+        staffId: cleanStaffId,
         startDate: startDate ? new Date(startDate) : undefined,
         endDate: endDate ? new Date(endDate) : undefined,
       });
