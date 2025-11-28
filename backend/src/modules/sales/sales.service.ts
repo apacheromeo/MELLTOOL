@@ -612,8 +612,7 @@ export class SalesService {
           some: {
             OR: [
               { sku: { contains: params.productSearch, mode: 'insensitive' } },
-              { name: { contains: params.productSearch, mode: 'insensitive' } },
-              { nameTh: { contains: params.productSearch, mode: 'insensitive' } },
+              { productName: { contains: params.productSearch, mode: 'insensitive' } },
             ],
           },
         };
@@ -643,8 +642,7 @@ export class SalesService {
               select: {
                 id: true,
                 sku: true,
-                name: true,
-                nameTh: true,
+                productName: true,
                 quantity: true,
               },
             },
