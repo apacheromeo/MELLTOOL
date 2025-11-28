@@ -600,7 +600,10 @@ class ApiClient {
     page?: number;
     limit?: number;
     status?: string;
+    channel?: string;
     staffId?: string;
+    orderNumber?: string;
+    productSearch?: string;
     startDate?: string;
     endDate?: string;
   }) {

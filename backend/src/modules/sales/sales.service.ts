@@ -53,6 +53,7 @@ export class SalesService {
         customerName: dto.customerName,
         customerPhone: dto.customerPhone,
         notes: dto.notes,
+        channel: dto.channel || 'POS',
         status: 'DRAFT',
       },
       include: {
@@ -573,7 +574,10 @@ export class SalesService {
     page?: number;
     limit?: number;
     status?: string;
+    channel?: string;
     staffId?: string;
+    orderNumber?: string;
+    productSearch?: string;
     startDate?: Date;
     endDate?: Date;
   }) {
@@ -588,8 +592,31 @@ export class SalesService {
         where.status = params.status;
       }
 
+      if (params.channel) {
+        where.channel = params.channel;
+      }
+
       if (params.staffId) {
         where.staffId = params.staffId;
+      }
+
+      if (params.orderNumber) {
+        where.orderNumber = {
+          contains: params.orderNumber,
+          mode: 'insensitive',
+        };
+      }
+
+      if (params.productSearch) {
+        where.items = {
+          some: {
+            OR: [
+              { sku: { contains: params.productSearch, mode: 'insensitive' } },
+              { name: { contains: params.productSearch, mode: 'insensitive' } },
+              { nameTh: { contains: params.productSearch, mode: 'insensitive' } },
+            ],
+          },
+        };
       }
 
       if (params.startDate || params.endDate) {
@@ -610,6 +637,15 @@ export class SalesService {
               select: {
                 id: true,
                 name: true,
+              },
+            },
+            items: {
+              select: {
+                id: true,
+                sku: true,
+                name: true,
+                nameTh: true,
+                quantity: true,
               },
             },
             _count: {

@@ -268,11 +268,17 @@ export class SalesController {
   @Get()
   @ApiOperation({ summary: 'Get sales history' })
   @ApiResponse({ status: 200, description: 'Sales history with pagination' })
+  @ApiQuery({ name: 'channel', required: false, description: 'Filter by sales channel' })
+  @ApiQuery({ name: 'orderNumber', required: false, description: 'Search by order number' })
+  @ApiQuery({ name: 'productSearch', required: false, description: 'Search by product name/SKU' })
   async getSalesHistory(
     @Query('page') page?: number,
     @Query('limit') limit?: number,
     @Query('status') status?: string,
+    @Query('channel') channel?: string,
     @Query('staffId') staffId?: string,
+    @Query('orderNumber') orderNumber?: string,
+    @Query('productSearch') productSearch?: string,
     @Query('startDate') startDate?: string,
     @Query('endDate') endDate?: string,
   ) {
@@ -280,12 +286,18 @@ export class SalesController {
       // Filter out "undefined" string that may come from frontend
       const cleanStatus = status === 'undefined' ? undefined : status;
       const cleanStaffId = staffId === 'undefined' ? undefined : staffId;
+      const cleanChannel = channel === 'undefined' ? undefined : channel;
+      const cleanOrderNumber = orderNumber === 'undefined' ? undefined : orderNumber;
+      const cleanProductSearch = productSearch === 'undefined' ? undefined : productSearch;
 
       return await this.salesService.getSalesHistory({
         page: page ? Number(page) : undefined,
         limit: limit ? Number(limit) : undefined,
         status: cleanStatus,
+        channel: cleanChannel,
         staffId: cleanStaffId,
+        orderNumber: cleanOrderNumber,
+        productSearch: cleanProductSearch,
         startDate: startDate ? new Date(startDate) : undefined,
         endDate: endDate ? new Date(endDate) : undefined,
       });

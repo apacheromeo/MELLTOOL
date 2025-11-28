@@ -1,6 +1,18 @@
 import { IsString, IsOptional, IsEnum } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
+export enum SalesChannel {
+  POS = 'POS',
+  SHOPEE = 'SHOPEE',
+  LAZADA = 'LAZADA',
+  LINE = 'LINE',
+  FACEBOOK = 'FACEBOOK',
+  INSTAGRAM = 'INSTAGRAM',
+  TIKTOK = 'TIKTOK',
+  WEBSITE = 'WEBSITE',
+  OTHER = 'OTHER',
+}
+
 export class CreateSalesOrderDto {
   @ApiPropertyOptional({ description: 'Order number (auto-generated if not provided)' })
   @IsOptional()
@@ -26,6 +38,11 @@ export class CreateSalesOrderDto {
   @IsOptional()
   @IsString()
   notes?: string;
+
+  @ApiPropertyOptional({ description: 'Sales channel', enum: SalesChannel })
+  @IsOptional()
+  @IsEnum(SalesChannel)
+  channel?: SalesChannel;
 }
 
 
