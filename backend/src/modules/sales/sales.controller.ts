@@ -151,61 +151,9 @@ export class SalesController {
   }
 
   /**
-   * GET /api/sales/by-order-number/:orderNumber
-   * Get sales order by order number (for QR code matching)
-   */
-  @Get('by-order-number/:orderNumber')
-  @ApiOperation({ summary: 'Get sales order by order number' })
-  @ApiResponse({ status: 200, description: 'Order details' })
-  @ApiResponse({ status: 404, description: 'Order not found' })
-  async getOrderByNumber(@Param('orderNumber') orderNumber: string) {
-    return this.salesService.getOrderByNumber(orderNumber);
-  }
-
-  /**
-   * GET /api/sales/:orderId
-   * Get sales order details
-   */
-  @Get(':orderId')
-  @ApiOperation({ summary: 'Get sales order by ID' })
-  @ApiResponse({ status: 200, description: 'Order details' })
-  @ApiResponse({ status: 404, description: 'Order not found' })
-  async getOrder(@Param('orderId') orderId: string) {
-    return this.salesService.getOrderById(orderId);
-  }
-
-  /**
-   * GET /api/sales/history
-   * Get sales history with filters
-   */
-  @Get()
-  @ApiOperation({ summary: 'Get sales history' })
-  @ApiResponse({ status: 200, description: 'Sales history with pagination' })
-  async getSalesHistory(
-    @Query('page') page?: number,
-    @Query('limit') limit?: number,
-    @Query('status') status?: string,
-    @Query('staffId') staffId?: string,
-    @Query('startDate') startDate?: string,
-    @Query('endDate') endDate?: string,
-  ) {
-    try {
-      return await this.salesService.getSalesHistory({
-        page: page ? Number(page) : undefined,
-        limit: limit ? Number(limit) : undefined,
-        status,
-        staffId,
-        startDate: startDate ? new Date(startDate) : undefined,
-        endDate: endDate ? new Date(endDate) : undefined,
-      });
-    } catch (error) {
-      throw new Error(`Failed to get sales history: ${error.message}`);
-    }
-  }
-
-  /**
    * GET /api/sales/report/daily
    * Get daily sales report
+   * NOTE: Must come BEFORE :orderId route to avoid route collision
    */
   @Get('report/daily')
   @ApiOperation({ summary: 'Get daily sales report' })
@@ -245,6 +193,61 @@ export class SalesController {
     const reportYear = year || new Date().getFullYear();
     const reportMonth = month || new Date().getMonth() + 1;
     return this.salesService.getMonthlyReport(reportYear, reportMonth);
+  }
+
+  /**
+   * GET /api/sales/by-order-number/:orderNumber
+   * Get sales order by order number (for QR code matching)
+   */
+  @Get('by-order-number/:orderNumber')
+  @ApiOperation({ summary: 'Get sales order by order number' })
+  @ApiResponse({ status: 200, description: 'Order details' })
+  @ApiResponse({ status: 404, description: 'Order not found' })
+  async getOrderByNumber(@Param('orderNumber') orderNumber: string) {
+    return this.salesService.getOrderByNumber(orderNumber);
+  }
+
+  /**
+   * GET /api/sales (no path)
+   * Get sales history with filters
+   * NOTE: Must come BEFORE :orderId route
+   */
+  @Get()
+  @ApiOperation({ summary: 'Get sales history' })
+  @ApiResponse({ status: 200, description: 'Sales history with pagination' })
+  async getSalesHistory(
+    @Query('page') page?: number,
+    @Query('limit') limit?: number,
+    @Query('status') status?: string,
+    @Query('staffId') staffId?: string,
+    @Query('startDate') startDate?: string,
+    @Query('endDate') endDate?: string,
+  ) {
+    try {
+      return await this.salesService.getSalesHistory({
+        page: page ? Number(page) : undefined,
+        limit: limit ? Number(limit) : undefined,
+        status,
+        staffId,
+        startDate: startDate ? new Date(startDate) : undefined,
+        endDate: endDate ? new Date(endDate) : undefined,
+      });
+    } catch (error) {
+      throw new Error(`Failed to get sales history: ${error.message}`);
+    }
+  }
+
+  /**
+   * GET /api/sales/:orderId
+   * Get sales order details
+   * NOTE: Must be LAST among GET routes to avoid catching other paths
+   */
+  @Get(':orderId')
+  @ApiOperation({ summary: 'Get sales order by ID' })
+  @ApiResponse({ status: 200, description: 'Order details' })
+  @ApiResponse({ status: 404, description: 'Order not found' })
+  async getOrder(@Param('orderId') orderId: string) {
+    return this.salesService.getOrderById(orderId);
   }
 
   /**
