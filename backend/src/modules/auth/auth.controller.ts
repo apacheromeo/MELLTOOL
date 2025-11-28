@@ -111,9 +111,9 @@ export class AuthController {
 
   @Get('users')
   @UseGuards(JwtAuthGuard)
-  @Roles(UserRole.OWNER)
+  @Roles(UserRole.OWNER, UserRole.MOD)
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Get all users (Owner only)' })
+  @ApiOperation({ summary: 'Get all users (Owner and Mod only)' })
   @ApiResponse({ status: 200, description: 'Users retrieved successfully' })
   async getUsers(@Request() req) {
     this.logger.log(`Users list requested by: ${req.user.email}`);
@@ -122,9 +122,9 @@ export class AuthController {
 
   @Post('users/:id/activate')
   @UseGuards(JwtAuthGuard)
-  @Roles(UserRole.OWNER)
+  @Roles(UserRole.OWNER, UserRole.MOD)
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Activate/deactivate user (Owner only)' })
+  @ApiOperation({ summary: 'Activate/deactivate user (Owner and Mod only)' })
   @ApiResponse({ status: 200, description: 'User status updated' })
   async toggleUserStatus(@Request() req, @Body('userId') userId: string) {
     this.logger.log(`User status toggle by: ${req.user.email} for user: ${userId}`);

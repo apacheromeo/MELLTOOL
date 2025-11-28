@@ -1611,10 +1611,10 @@ export class SalesService {
     // STAFF needs approval (requiresApproval should be true and handled by frontend/approval system)
     // OWNER and MOD can cancel directly
     if (userRole === 'STAFF' && dto.requiresApproval) {
-      // In a real system, this would create a pending approval request
-      // For now, we'll just throw an error to indicate approval is needed
+      // This is now handled by the createCancellationRequest method
+      // Staff should use that endpoint instead
       throw new BadRequestException(
-        'Staff cancellation requires admin approval. Please contact an admin.',
+        'Staff cancellation requires admin approval. Use the cancellation request endpoint.',
       );
     }
 
@@ -1730,6 +1730,282 @@ export class SalesService {
       `Order marked as returned: ${dto.orderId}, shipping cost: ${dto.shippingCost || 0}`,
     );
     return returnedOrder;
+  }
+
+  /**
+   * Create a cancellation request for STAFF users
+   * This request will need to be approved by OWNER or MOD
+   */
+  async createCancellationRequest(
+    orderId: string,
+    reason: string,
+    userId: string,
+  ) {
+    this.logger.log(
+      `Creating cancellation request for order: ${orderId} by user: ${userId}`,
+    );
+
+    // Check if order exists
+    const order = await this.prisma.salesOrder.findUnique({
+      where: { id: orderId },
+      include: {
+        cancellationRequests: {
+          where: {
+            approvalStatus: 'PENDING_APPROVAL',
+          },
+        },
+      },
+    });
+
+    if (!order) {
+      throw new NotFoundException('Sales order not found');
+    }
+
+    // Check if order is already canceled or returned
+    if (order.status === 'CANCELED' || order.status === 'RETURNED') {
+      throw new BadRequestException('Order is already canceled or returned');
+    }
+
+    // Check if there's already a pending request for this order
+    if (order.cancellationRequests.length > 0) {
+      throw new BadRequestException(
+        'A cancellation request is already pending for this order',
+      );
+    }
+
+    // Create the cancellation request
+    const request = await this.prisma.cancellationRequest.create({
+      data: {
+        orderId,
+        reason,
+        requestedById: userId,
+        approvalStatus: 'PENDING_APPROVAL',
+      },
+      include: {
+        order: {
+          include: {
+            staff: true,
+            items: true,
+          },
+        },
+        requestedBy: true,
+      },
+    });
+
+    this.logger.log(`Cancellation request created: ${request.id}`);
+    return request;
+  }
+
+  /**
+   * Get all pending cancellation requests (for OWNER/MOD)
+   */
+  async getPendingCancellationRequests() {
+    this.logger.log('Fetching pending cancellation requests');
+
+    return this.prisma.cancellationRequest.findMany({
+      where: {
+        approvalStatus: 'PENDING_APPROVAL',
+      },
+      include: {
+        order: {
+          include: {
+            staff: true,
+            items: {
+              include: {
+                product: true,
+              },
+            },
+          },
+        },
+        requestedBy: true,
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+    });
+  }
+
+  /**
+   * Get all cancellation requests (with optional filtering)
+   */
+  async getCancellationRequests(status?: string) {
+    this.logger.log(`Fetching cancellation requests with status: ${status}`);
+
+    const where: any = {};
+    if (status) {
+      where.approvalStatus = status;
+    }
+
+    return this.prisma.cancellationRequest.findMany({
+      where,
+      include: {
+        order: {
+          include: {
+            staff: true,
+            items: {
+              include: {
+                product: true,
+              },
+            },
+          },
+        },
+        requestedBy: true,
+        approvedBy: true,
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+    });
+  }
+
+  /**
+   * Approve a cancellation request (OWNER/MOD only)
+   * This will actually cancel the order
+   */
+  async approveCancellationRequest(requestId: string, approverId: string) {
+    this.logger.log(
+      `Approving cancellation request: ${requestId} by user: ${approverId}`,
+    );
+
+    const request = await this.prisma.cancellationRequest.findUnique({
+      where: { id: requestId },
+      include: {
+        order: {
+          include: {
+            items: {
+              include: {
+                product: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!request) {
+      throw new NotFoundException('Cancellation request not found');
+    }
+
+    if (request.approvalStatus !== 'PENDING_APPROVAL') {
+      throw new BadRequestException(
+        'Cancellation request has already been processed',
+      );
+    }
+
+    // Check if order is still valid for cancellation
+    if (
+      request.order.status === 'CANCELED' ||
+      request.order.status === 'RETURNED'
+    ) {
+      throw new BadRequestException('Order is already canceled or returned');
+    }
+
+    // If order is CONFIRMED, restore stock
+    if (request.order.status === 'CONFIRMED') {
+      this.logger.log(
+        `Restoring stock for confirmed order: ${request.order.id}`,
+      );
+
+      for (const item of request.order.items) {
+        await this.prisma.product.update({
+          where: { id: item.productId },
+          data: {
+            stockQty: {
+              increment: item.quantity,
+            },
+          },
+        });
+
+        this.logger.log(
+          `Restored ${item.quantity} units to product: ${item.product.sku}`,
+        );
+      }
+    }
+
+    // Update the cancellation request
+    await this.prisma.cancellationRequest.update({
+      where: { id: requestId },
+      data: {
+        approvalStatus: 'APPROVED',
+        approvedById: approverId,
+        approvedAt: new Date(),
+      },
+    });
+
+    // Cancel the order
+    const canceledOrder = await this.prisma.salesOrder.update({
+      where: { id: request.orderId },
+      data: {
+        status: 'CANCELED',
+        canceledAt: new Date(),
+        cancellationReason: request.reason,
+      },
+      include: {
+        staff: true,
+        items: {
+          include: {
+            product: true,
+          },
+        },
+      },
+    });
+
+    this.logger.log(`Cancellation request approved and order canceled`);
+    return canceledOrder;
+  }
+
+  /**
+   * Reject a cancellation request (OWNER/MOD only)
+   */
+  async rejectCancellationRequest(
+    requestId: string,
+    approverId: string,
+    rejectionReason: string,
+  ) {
+    this.logger.log(
+      `Rejecting cancellation request: ${requestId} by user: ${approverId}`,
+    );
+
+    const request = await this.prisma.cancellationRequest.findUnique({
+      where: { id: requestId },
+      include: {
+        order: true,
+      },
+    });
+
+    if (!request) {
+      throw new NotFoundException('Cancellation request not found');
+    }
+
+    if (request.approvalStatus !== 'PENDING_APPROVAL') {
+      throw new BadRequestException(
+        'Cancellation request has already been processed',
+      );
+    }
+
+    // Update the cancellation request
+    const rejectedRequest = await this.prisma.cancellationRequest.update({
+      where: { id: requestId },
+      data: {
+        approvalStatus: 'REJECTED',
+        approvedById: approverId,
+        approvedAt: new Date(),
+        rejectionReason,
+      },
+      include: {
+        order: {
+          include: {
+            staff: true,
+            items: true,
+          },
+        },
+        requestedBy: true,
+        approvedBy: true,
+      },
+    });
+
+    this.logger.log(`Cancellation request rejected`);
+    return rejectedRequest;
   }
 }
 

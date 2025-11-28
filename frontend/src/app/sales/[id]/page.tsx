@@ -80,21 +80,37 @@ export default function SalesOrderDetailPage() {
   }
 
   const handleCancelOrder = async () => {
-    if (!confirm('Are you sure you want to cancel this order?')) {
+    if (!cancelReason.trim()) {
+      alert('Please provide a cancellation reason')
+      return
+    }
+
+    const confirmMessage = user?.role === 'STAFF'
+      ? 'Submit cancellation request for approval?'
+      : 'Are you sure you want to cancel this order?'
+
+    if (!confirm(confirmMessage)) {
       return
     }
 
     try {
-      const requiresApproval = user?.role === 'STAFF'
-      await api.cancelSale(orderId, {
-        reason: cancelReason,
-        requiresApproval,
-      })
-      alert('Order canceled successfully!')
+      if (user?.role === 'STAFF') {
+        // STAFF users create a cancellation request
+        await api.requestCancellation(orderId, cancelReason)
+        alert('Cancellation request submitted successfully! Awaiting admin approval.')
+      } else {
+        // OWNER/MOD can cancel directly
+        await api.cancelSale(orderId, {
+          reason: cancelReason,
+          requiresApproval: false,
+        })
+        alert('Order canceled successfully!')
+      }
       setShowCancelModal(false)
+      setCancelReason('')
       loadOrder()
     } catch (err: any) {
-      alert('Failed to cancel order: ' + err.message)
+      alert('Failed to process cancellation: ' + err.message)
     }
   }
 

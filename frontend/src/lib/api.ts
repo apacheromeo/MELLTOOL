@@ -588,6 +588,35 @@ class ApiClient {
     });
   }
 
+  async requestCancellation(orderId: string, reason: string) {
+    return this.request(`/sales/${orderId}/request-cancellation`, {
+      method: 'POST',
+      body: JSON.stringify({ reason }),
+    });
+  }
+
+  async getPendingCancellationRequests() {
+    return this.request('/sales/cancellation-requests/pending');
+  }
+
+  async getCancellationRequests(status?: string) {
+    const query = status ? `?status=${status}` : '';
+    return this.request(`/sales/cancellation-requests${query}`);
+  }
+
+  async approveCancellationRequest(requestId: string) {
+    return this.request(`/sales/cancellation-requests/${requestId}/approve`, {
+      method: 'POST',
+    });
+  }
+
+  async rejectCancellationRequest(requestId: string, reason: string) {
+    return this.request(`/sales/cancellation-requests/${requestId}/reject`, {
+      method: 'POST',
+      body: JSON.stringify({ reason }),
+    });
+  }
+
   async getSalesOrder(orderId: string) {
     return this.request(`/sales/${orderId}`);
   }
