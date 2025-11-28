@@ -375,15 +375,60 @@ export class ProductImportService {
       const worksheet = workbook.Sheets[sheetName];
 
       // Convert to JSON with header row
-      const data = XLSX.utils.sheet_to_json(worksheet, {
+      const rawData = XLSX.utils.sheet_to_json(worksheet, {
         raw: false, // Convert all values to strings
         defval: '', // Default value for empty cells
       });
 
-      return data as ImportRow[];
+      // Normalize column names to match expected format
+      const normalizedData = rawData.map((row: any) => {
+        const normalizedRow: any = {};
+
+        for (const [key, value] of Object.entries(row)) {
+          const normalizedKey = this.normalizeColumnName(key);
+          normalizedRow[normalizedKey] = value;
+        }
+
+        return normalizedRow;
+      });
+
+      return normalizedData as ImportRow[];
     } catch (error) {
       throw new BadRequestException(`Failed to parse Excel file: ${error.message}`);
     }
+  }
+
+  /**
+   * Normalize column names for consistent mapping
+   */
+  private normalizeColumnName(header: string): string {
+    const normalized = header.toLowerCase().trim();
+    const mappings: Record<string, string> = {
+      'product sku': 'sku',
+      'product name': 'name',
+      'product name (thai)': 'nameTh',
+      'name (thai)': 'nameTh',
+      'thai name': 'nameTh',
+      'description (thai)': 'descriptionTh',
+      'cost': 'costPrice',
+      'cost price': 'costPrice',
+      'price': 'sellPrice',
+      'sell price': 'sellPrice',
+      'selling price': 'sellPrice',
+      'stock': 'stockQty',
+      'quantity': 'stockQty',
+      'stock qty': 'stockQty',
+      'current stock': 'currentStock', // Read-only field from export
+      'new stock': 'New Stock', // Preserve case for "New Stock" detection
+      'min stock': 'minStock',
+      'minimum stock': 'minStock',
+      'max stock': 'maxStock',
+      'maximum stock': 'maxStock',
+      'category name': 'category',
+      'brand name': 'brand',
+    };
+
+    return mappings[normalized] || header; // Return mapped name or preserve original
   }
 
   /**
@@ -396,32 +441,8 @@ export class ProductImportService {
         header: true,
         skipEmptyLines: true,
         transformHeader: (header) => {
-          // Normalize header names (case-insensitive, handle common variations)
-          // Trim headers manually since trimHeaders option doesn't exist in types
-          const normalized = header.toLowerCase().trim();
-          const mappings: Record<string, string> = {
-            'product sku': 'sku',
-            'product name': 'name',
-            'name (thai)': 'nameTh',
-            'thai name': 'nameTh',
-            'description (thai)': 'descriptionTh',
-            'cost': 'costPrice',
-            'cost price': 'costPrice',
-            'price': 'sellPrice',
-            'sell price': 'sellPrice',
-            'selling price': 'sellPrice',
-            'stock': 'stockQty',
-            'quantity': 'stockQty',
-            'stock qty': 'stockQty',
-            'min stock': 'minStock',
-            'minimum stock': 'minStock',
-            'max stock': 'maxStock',
-            'maximum stock': 'maxStock',
-            'category name': 'category',
-            'brand name': 'brand',
-          };
-
-          return mappings[normalized] || normalized;
+          // Use shared normalization function
+          return this.normalizeColumnName(header);
         },
       }) as Papa.ParseResult<ImportRow>;
 
