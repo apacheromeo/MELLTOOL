@@ -446,8 +446,9 @@ model SalesOrder {
   profit       Float          @default(0) // totalPrice - totalCost
   shippingCost Float?         // Shipping cost for returns
 
-  // Status
+  // Status and Channel
   status       SalesStatus    @default(DRAFT)
+  channel      SalesChannel   @default(POS) // Sales channel
 
   // Relations
   staffId      String
@@ -471,6 +472,7 @@ model SalesOrder {
 
   @@index([staffId])
   @@index([status])
+  @@index([channel])
   @@index([createdAt])
   @@map("sales_orders")
 }
@@ -481,6 +483,18 @@ enum SalesStatus {
   CANCELED   // Order canceled
   REFUNDED   // Order refunded (stock restored)
   RETURNED   // Order returned to warehouse
+}
+
+enum SalesChannel {
+  POS        // In-store Point of Sale
+  SHOPEE     // Shopee marketplace
+  LAZADA     // Lazada marketplace
+  LINE       // LINE messaging platform
+  FACEBOOK   // Facebook marketplace
+  INSTAGRAM  // Instagram shop
+  TIKTOK     // TikTok shop
+  WEBSITE    // Own website
+  OTHER      // Other channels
 }
 
 // Sales Order Items
