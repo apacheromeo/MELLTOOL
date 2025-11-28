@@ -119,13 +119,36 @@ export class ProductImportService {
       const rowNumber = i + 2; // +2 because Excel rows start at 1 and we have header
 
       try {
+        // Check if this is a stock adjustment import (has "New Stock" column)
+        const hasNewStockColumn = row['New Stock'] !== undefined || row['new stock'] !== undefined;
+
         // Validate required fields
-        if (!row.sku || !row.name) {
+        // For stock-only updates with updateExisting, we only need SKU
+        // For creating new products or full updates, we need SKU and Name
+        if (!row.sku) {
           result.errors.push({
             row: rowNumber,
             sku: row.sku,
             name: row.name,
-            error: 'SKU and Name are required',
+            error: 'SKU is required',
+          });
+          result.failed++;
+          continue;
+        }
+
+        // Check if product exists (for validation purposes)
+        const existingProductCheck = await this.prisma.product.findUnique({
+          where: { sku: String(row.sku).trim() },
+        });
+
+        // If updating existing product with stock-only mode, name is optional
+        // Otherwise, name is required for new products or full updates
+        if (!existingProductCheck && !row.name) {
+          result.errors.push({
+            row: rowNumber,
+            sku: row.sku,
+            name: row.name,
+            error: 'Name is required for new products',
           });
           result.failed++;
           continue;
@@ -145,12 +168,14 @@ export class ProductImportService {
           }
         }
 
-        if (!categoryId) {
+        // Category is required only for new products
+        // For existing products, preserve the existing category if not provided
+        if (!categoryId && !existingProductCheck) {
           result.errors.push({
             row: rowNumber,
             sku: row.sku,
             name: row.name,
-            error: `Category not found: ${row.category || 'N/A'}`,
+            error: `Category not found: ${row.category || 'N/A'}. Category is required for new products.`,
           });
           result.failed++;
           continue;
@@ -170,12 +195,14 @@ export class ProductImportService {
           }
         }
 
-        if (!brandId) {
+        // Brand is required only for new products
+        // For existing products, preserve the existing brand if not provided
+        if (!brandId && !existingProductCheck) {
           result.errors.push({
             row: rowNumber,
             sku: row.sku,
             name: row.name,
-            error: `Brand not found: ${row.brand || 'N/A'}`,
+            error: `Brand not found: ${row.brand || 'N/A'}. Brand is required for new products.`,
           });
           result.failed++;
           continue;
@@ -184,7 +211,7 @@ export class ProductImportService {
         // Convert data types
         const productData = {
           sku: String(row.sku).trim(),
-          name: String(row.name).trim(),
+          name: row.name ? String(row.name).trim() : existingProductCheck?.name,
           nameTh: row.nameTh ? String(row.nameTh).trim() : undefined,
           description: row.description ? String(row.description).trim() : undefined,
           descriptionTh: row.descriptionTh
@@ -193,16 +220,16 @@ export class ProductImportService {
           weight: row.weight ? parseFloat(String(row.weight)) : undefined,
           dimensions: row.dimensions ? String(row.dimensions).trim() : undefined,
           color: row.color ? String(row.color).trim() : undefined,
-          costPrice: parseFloat(String(row.costPrice || 0)),
+          costPrice: row.costPrice !== undefined ? parseFloat(String(row.costPrice)) : (existingProductCheck?.costPrice || 0),
           sellPrice: row.sellPrice
             ? parseFloat(String(row.sellPrice))
             : undefined,
           stockQty: row.stockQty ? parseInt(String(row.stockQty)) : 0,
-          minStock: row.minStock ? parseInt(String(row.minStock)) : 0,
+          minStock: row.minStock !== undefined ? parseInt(String(row.minStock)) : 0,
           maxStock: row.maxStock ? parseInt(String(row.maxStock)) : undefined,
           barcode: row.barcode ? String(row.barcode).trim() : undefined,
-          categoryId,
-          brandId,
+          categoryId: categoryId || existingProductCheck?.categoryId,
+          brandId: brandId || existingProductCheck?.brandId,
           isDigital:
             row.isDigital === true ||
             row.isDigital === 'true' ||
@@ -235,26 +262,31 @@ export class ProductImportService {
 
             // Note: imageUrl and barcode are intentionally NOT updated here
             // to preserve manually uploaded images and generated barcodes
+            // Build update data object - only include fields that are provided
+            const updateData: any = {
+              stockQty: newStockQty,
+            };
+
+            // Only update fields if they are provided in the import
+            if (row.name) updateData.name = productData.name;
+            if (row.nameTh !== undefined) updateData.nameTh = productData.nameTh;
+            if (row.description !== undefined) updateData.description = productData.description;
+            if (row.descriptionTh !== undefined) updateData.descriptionTh = productData.descriptionTh;
+            if (row.weight !== undefined) updateData.weight = productData.weight;
+            if (row.dimensions !== undefined) updateData.dimensions = productData.dimensions;
+            if (row.color !== undefined) updateData.color = productData.color;
+            if (row.costPrice !== undefined) updateData.costPrice = productData.costPrice;
+            if (row.sellPrice !== undefined) updateData.sellPrice = productData.sellPrice;
+            if (row.minStock !== undefined) updateData.minStock = productData.minStock;
+            if (row.maxStock !== undefined) updateData.maxStock = productData.maxStock;
+            if (productData.categoryId) updateData.categoryId = productData.categoryId;
+            if (productData.brandId) updateData.brandId = productData.brandId;
+            // imageUrl: preserved (not updated)
+            // barcode: preserved (not updated)
+
             const updated = await this.prisma.product.update({
               where: { id: existingProduct.id },
-              data: {
-                name: productData.name,
-                nameTh: productData.nameTh,
-                description: productData.description,
-                descriptionTh: productData.descriptionTh,
-                weight: productData.weight,
-                dimensions: productData.dimensions,
-                color: productData.color,
-                costPrice: productData.costPrice,
-                sellPrice: productData.sellPrice,
-                stockQty: newStockQty,
-                minStock: productData.minStock,
-                maxStock: productData.maxStock,
-                categoryId: productData.categoryId,
-                brandId: productData.brandId,
-                // imageUrl: preserved (not updated)
-                // barcode: preserved (not updated)
-              },
+              data: updateData,
               include: {
                 brand: { select: { name: true } },
                 category: { select: { name: true } },
