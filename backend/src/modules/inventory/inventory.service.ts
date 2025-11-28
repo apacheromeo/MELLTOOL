@@ -67,19 +67,28 @@ export class InventoryService {
 
   async getLowStockProducts() {
     const cacheKey = 'inventory:low-stock';
-    
+
     return this.redis.cache(cacheKey, async () => {
-      return this.prisma.product.findMany({
-        where: {
-          isActive: true,
-          stockQty: { lte: this.prisma.product.fields.minStock },
-        },
-        include: {
-          brand: { select: { name: true } },
-          category: { select: { name: true } },
-        },
-        orderBy: { stockQty: 'asc' },
-      });
+      // Use raw SQL for field-to-field comparison
+      const products = await this.prisma.$queryRaw<any[]>`
+        SELECT
+          p.id, p.sku, p.name, p."nameTh", p."stockQty", p."minStock", p."maxStock",
+          p."sellPrice", p."costPrice", p."createdAt", p."updatedAt",
+          b.name as "brandName", c.name as "categoryName"
+        FROM "Product" p
+        LEFT JOIN "Brand" b ON p."brandId" = b.id
+        LEFT JOIN "Category" c ON p."categoryId" = c.id
+        WHERE p."isActive" = true
+          AND p."stockQty" <= p."minStock"
+        ORDER BY p."stockQty" ASC
+      `;
+
+      // Transform to match expected format
+      return products.map(p => ({
+        ...p,
+        brand: p.brandName ? { name: p.brandName } : null,
+        category: p.categoryName ? { name: p.categoryName } : null,
+      }));
     }, 600); // 10 minutes cache
   }
 

@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import SidebarLayout from '@/components/SidebarLayout'
 import { exportLowStockReportPDF } from '@/lib/pdf-export'
+import { api } from '@/lib/api'
 
 interface LowStockProduct {
   id: string
@@ -16,7 +17,7 @@ interface LowStockProduct {
   maxStock: number
   stockPercentage: number
   lastRestocked: string
-  urgency: 'critical' | 'warning' | 'low'
+  urgency: 'out-of-stock' | 'critical' | 'warning' | 'low'
   price: number
   supplier: string
 }
@@ -34,107 +35,62 @@ export default function LowStockPage() {
     loadLowStockProducts()
   }, [])
 
-  const loadLowStockProducts = () => {
+  const loadLowStockProducts = async () => {
     setLoading(true)
-    setTimeout(() => {
-      setProducts([
-        {
-          id: '1',
-          sku: 'VAC-FILTER-001',
-          name: 'HEPA Filter H13',
-          nameTh: 'ฟิลเตอร์ HEPA H13',
-          category: 'Filters',
-          currentStock: 5,
-          minStock: 20,
-          maxStock: 100,
-          stockPercentage: 5,
-          lastRestocked: '2024-10-15',
-          urgency: 'critical',
-          price: 450,
-          supplier: 'FilterPro Co.'
-        },
-        {
-          id: '2',
-          sku: 'VAC-BAT-002',
-          name: 'Lithium Battery 2500mAh',
-          nameTh: 'แบตเตอรี่ลิเธียม 2500mAh',
-          category: 'Batteries',
-          currentStock: 12,
-          minStock: 30,
-          maxStock: 150,
-          stockPercentage: 8,
-          lastRestocked: '2024-10-10',
-          urgency: 'critical',
-          price: 1200,
-          supplier: 'PowerCell Ltd.'
-        },
-        {
-          id: '3',
-          sku: 'VAC-BRUSH-003',
-          name: 'Rotating Brush Head',
-          nameTh: 'หัวแปรงหมุน',
-          category: 'Brushes',
-          currentStock: 25,
-          minStock: 50,
-          maxStock: 200,
-          stockPercentage: 12.5,
-          lastRestocked: '2024-10-12',
-          urgency: 'warning',
-          price: 350,
-          supplier: 'BrushMaster Inc.'
-        },
-        {
-          id: '4',
-          sku: 'VAC-MOTOR-004',
-          name: 'DC Motor 1000W',
-          nameTh: 'มอเตอร์ DC 1000W',
-          category: 'Motors',
-          currentStock: 8,
-          minStock: 15,
-          maxStock: 50,
-          stockPercentage: 16,
-          lastRestocked: '2024-10-08',
-          urgency: 'warning',
-          price: 2500,
-          supplier: 'MotorWorks Co.'
-        },
-        {
-          id: '5',
-          sku: 'VAC-HOSE-005',
-          name: 'Flexible Hose 2m',
-          nameTh: 'ท่อยืดหยุ่น 2 เมตร',
-          category: 'Parts',
-          currentStock: 35,
-          minStock: 60,
-          maxStock: 300,
-          stockPercentage: 11.7,
-          lastRestocked: '2024-10-18',
-          urgency: 'low',
-          price: 280,
-          supplier: 'HosePro Ltd.'
-        },
-        {
-          id: '6',
-          sku: 'VAC-WHEEL-006',
-          name: 'Replacement Wheels Set',
-          nameTh: 'ชุดล้อสำรอง',
-          category: 'Parts',
-          currentStock: 18,
-          minStock: 40,
-          maxStock: 120,
-          stockPercentage: 15,
-          lastRestocked: '2024-10-20',
-          urgency: 'low',
-          price: 180,
-          supplier: 'WheelTech Co.'
+    try {
+      const response = await api.getLowStockProducts()
+
+      // Transform backend data to component format
+      const transformedProducts: LowStockProduct[] = response.map((product: any) => {
+        const currentStock = product.stockQty || 0
+        const minStock = product.minStock || 0
+        const maxStock = product.maxStock || 100
+
+        // Calculate stock percentage relative to min stock
+        const stockPercentage = minStock > 0 ? (currentStock / minStock) * 100 : 0
+
+        // Determine urgency based on stock level
+        let urgency: 'out-of-stock' | 'critical' | 'warning' | 'low'
+        if (currentStock === 0) {
+          urgency = 'out-of-stock'
+        } else if (stockPercentage < 50) {
+          urgency = 'critical'
+        } else if (stockPercentage < 80) {
+          urgency = 'warning'
+        } else {
+          urgency = 'low'
         }
-      ])
+
+        return {
+          id: product.id,
+          sku: product.sku,
+          name: product.name,
+          nameTh: product.nameTh || product.name,
+          category: product.category?.name || 'Uncategorized',
+          currentStock,
+          minStock,
+          maxStock,
+          stockPercentage,
+          lastRestocked: product.updatedAt || product.createdAt,
+          urgency,
+          price: product.sellPrice || 0,
+          supplier: product.brand?.name || 'N/A'
+        }
+      })
+
+      setProducts(transformedProducts)
+    } catch (error) {
+      console.error('Failed to load low stock products:', error)
+      alert('Failed to load low stock products. Please try again.')
+    } finally {
       setLoading(false)
-    }, 500)
+    }
   }
 
   const getUrgencyColor = (urgency: string) => {
     switch (urgency) {
+      case 'out-of-stock':
+        return 'bg-red-600 text-white border-red-700'
       case 'critical':
         return 'bg-red-100 text-red-800 border-red-300'
       case 'warning':
@@ -148,6 +104,8 @@ export default function LowStockPage() {
 
   const getUrgencyIcon = (urgency: string) => {
     switch (urgency) {
+      case 'out-of-stock':
+        return '❌'
       case 'critical':
         return '🚨'
       case 'warning':
@@ -169,16 +127,17 @@ export default function LowStockPage() {
     })
     .sort((a, b) => {
       if (sortBy === 'urgency') {
-        const urgencyOrder = { critical: 0, warning: 1, low: 2 }
+        const urgencyOrder = { 'out-of-stock': 0, critical: 1, warning: 2, low: 3 }
         return urgencyOrder[a.urgency] - urgencyOrder[b.urgency]
       } else if (sortBy === 'stock') {
-        return a.stockPercentage - b.stockPercentage
+        return a.currentStock - b.currentStock
       } else {
         return a.name.localeCompare(b.name)
       }
     })
 
   const categories = [...new Set(products.map(p => p.category))]
+  const outOfStockCount = products.filter(p => p.urgency === 'out-of-stock').length
   const criticalCount = products.filter(p => p.urgency === 'critical').length
   const warningCount = products.filter(p => p.urgency === 'warning').length
   const lowCount = products.filter(p => p.urgency === 'low').length
@@ -228,13 +187,24 @@ export default function LowStockPage() {
         </div>
 
         {/* Alert Summary Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
+          <div className="card p-6 border-l-4 border-red-700 bg-red-50">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-600 mb-1">Out of Stock</p>
+                <p className="text-3xl font-bold text-red-700">{outOfStockCount}</p>
+                <p className="text-xs text-gray-500 mt-1">0 stock</p>
+              </div>
+              <div className="text-4xl">❌</div>
+            </div>
+          </div>
+
           <div className="card p-6 border-l-4 border-red-500">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-600 mb-1">Critical</p>
                 <p className="text-3xl font-bold text-red-600">{criticalCount}</p>
-                <p className="text-xs text-gray-500 mt-1">&lt; 10% stock</p>
+                <p className="text-xs text-gray-500 mt-1">&lt; 50% min</p>
               </div>
               <div className="text-4xl">🚨</div>
             </div>
@@ -245,7 +215,7 @@ export default function LowStockPage() {
               <div>
                 <p className="text-sm text-gray-600 mb-1">Warning</p>
                 <p className="text-3xl font-bold text-yellow-600">{warningCount}</p>
-                <p className="text-xs text-gray-500 mt-1">10-20% stock</p>
+                <p className="text-xs text-gray-500 mt-1">50-80% min</p>
               </div>
               <div className="text-4xl">⚠️</div>
             </div>
@@ -256,7 +226,7 @@ export default function LowStockPage() {
               <div>
                 <p className="text-sm text-gray-600 mb-1">Low</p>
                 <p className="text-3xl font-bold text-blue-600">{lowCount}</p>
-                <p className="text-xs text-gray-500 mt-1">20-30% stock</p>
+                <p className="text-xs text-gray-500 mt-1">80-100% min</p>
               </div>
               <div className="text-4xl">ℹ️</div>
             </div>
@@ -296,6 +266,7 @@ export default function LowStockPage() {
               className="select"
             >
               <option value="all">All Urgency Levels</option>
+              <option value="out-of-stock">Out of Stock</option>
               <option value="critical">Critical</option>
               <option value="warning">Warning</option>
               <option value="low">Low</option>
@@ -385,6 +356,7 @@ export default function LowStockPage() {
                       </td>
                       <td className="px-6 py-4">
                         <span className={`text-lg font-bold ${
+                          product.urgency === 'out-of-stock' ? 'text-red-700' :
                           product.urgency === 'critical' ? 'text-red-600' :
                           product.urgency === 'warning' ? 'text-yellow-600' :
                           'text-blue-600'
@@ -398,11 +370,14 @@ export default function LowStockPage() {
                       <td className="px-6 py-4">
                         <div className="w-full">
                           <div className="flex items-center justify-between mb-1">
-                            <span className="text-xs text-gray-600">{product.stockPercentage.toFixed(1)}%</span>
+                            <span className="text-xs text-gray-600">
+                              {product.urgency === 'out-of-stock' ? '0%' : `${product.stockPercentage.toFixed(1)}%`}
+                            </span>
                           </div>
                           <div className="w-full bg-gray-200 rounded-full h-2">
                             <div
                               className={`h-2 rounded-full ${
+                                product.urgency === 'out-of-stock' ? 'bg-red-700' :
                                 product.urgency === 'critical' ? 'bg-red-500' :
                                 product.urgency === 'warning' ? 'bg-yellow-500' :
                                 'bg-blue-500'

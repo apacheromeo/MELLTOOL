@@ -110,6 +110,10 @@ class ApiClient {
     return this.request(`/inventory/products/${id}`);
   }
 
+  async getLowStockProducts() {
+    return this.request('/inventory/analytics/low-stock');
+  }
+
   async createProduct(data: any) {
     return this.request('/inventory/products', {
       method: 'POST',
