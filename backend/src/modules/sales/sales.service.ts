@@ -11,6 +11,9 @@ import {
   ScanBarcodeDto,
   ConfirmSaleDto,
   UpdateItemDto,
+  UpdateOrderDto,
+  CancelOrderDto,
+  ReturnOrderDto,
 } from './dto';
 import { SearchPosProductsDto } from './dto/search-pos-products.dto';
 import { ApplyDiscountDto, DiscountType } from './dto/apply-discount.dto';
@@ -1504,6 +1507,195 @@ export class SalesService {
         totalItemsSold: { increment: totalItemsSold },
       },
     });
+  }
+
+  /**
+   * Update order metadata (customer info, payment method, notes)
+   * Only allows updating non-critical fields
+   */
+  async updateOrder(orderId: string, dto: UpdateOrderDto) {
+    this.logger.log(`Updating order metadata: ${orderId}`);
+
+    const order = await this.prisma.salesOrder.findUnique({
+      where: { id: orderId },
+    });
+
+    if (!order) {
+      throw new NotFoundException('Sales order not found');
+    }
+
+    const updatedOrder = await this.prisma.salesOrder.update({
+      where: { id: orderId },
+      data: {
+        customerName: dto.customerName,
+        customerPhone: dto.customerPhone,
+        paymentMethod: dto.paymentMethod,
+        notes: dto.notes,
+      },
+      include: {
+        staff: true,
+        items: {
+          include: {
+            product: true,
+          },
+        },
+      },
+    });
+
+    this.logger.log(`Order metadata updated: ${orderId}`);
+    return updatedOrder;
+  }
+
+  /**
+   * Cancel order with reason (supports both DRAFT and CONFIRMED orders)
+   * For CONFIRMED orders, restores stock to inventory
+   */
+  async cancelOrderWithReason(dto: CancelOrderDto, userRole?: string) {
+    this.logger.log(`Canceling order with reason: ${dto.orderId}`);
+
+    const order = await this.prisma.salesOrder.findUnique({
+      where: { id: dto.orderId },
+      include: {
+        items: {
+          include: {
+            product: true,
+          },
+        },
+      },
+    });
+
+    if (!order) {
+      throw new NotFoundException('Sales order not found');
+    }
+
+    // Check if order is already canceled or returned
+    if (order.status === 'CANCELED' || order.status === 'RETURNED') {
+      throw new BadRequestException('Order is already canceled or returned');
+    }
+
+    // Role-based authorization check
+    // STAFF needs approval (requiresApproval should be true and handled by frontend/approval system)
+    // OWNER and MOD can cancel directly
+    if (userRole === 'STAFF' && dto.requiresApproval) {
+      // In a real system, this would create a pending approval request
+      // For now, we'll just throw an error to indicate approval is needed
+      throw new BadRequestException(
+        'Staff cancellation requires admin approval. Please contact an admin.',
+      );
+    }
+
+    // If order is CONFIRMED, we need to restore stock
+    if (order.status === 'CONFIRMED') {
+      this.logger.log(`Restoring stock for confirmed order: ${dto.orderId}`);
+
+      // Restore stock for each item
+      for (const item of order.items) {
+        await this.prisma.product.update({
+          where: { id: item.productId },
+          data: {
+            stockQty: {
+              increment: item.quantity,
+            },
+          },
+        });
+
+        this.logger.log(
+          `Restored ${item.quantity} units to product: ${item.product.sku}`,
+        );
+      }
+    }
+
+    // Update order status to CANCELED
+    const canceledOrder = await this.prisma.salesOrder.update({
+      where: { id: dto.orderId },
+      data: {
+        status: 'CANCELED',
+        canceledAt: new Date(),
+        cancellationReason: dto.reason,
+      },
+      include: {
+        staff: true,
+        items: {
+          include: {
+            product: true,
+          },
+        },
+      },
+    });
+
+    this.logger.log(`Order canceled: ${dto.orderId}`);
+    return canceledOrder;
+  }
+
+  /**
+   * Mark order as returned to warehouse
+   * Restores stock and tracks shipping cost for expense management
+   */
+  async returnOrder(dto: ReturnOrderDto) {
+    this.logger.log(`Processing order return: ${dto.orderId}`);
+
+    const order = await this.prisma.salesOrder.findUnique({
+      where: { id: dto.orderId },
+      include: {
+        items: {
+          include: {
+            product: true,
+          },
+        },
+      },
+    });
+
+    if (!order) {
+      throw new NotFoundException('Sales order not found');
+    }
+
+    // Only CONFIRMED orders can be returned
+    if (order.status !== 'CONFIRMED') {
+      throw new BadRequestException(
+        'Only confirmed orders can be marked as returned',
+      );
+    }
+
+    // Restore stock for each item
+    this.logger.log(`Restoring stock for returned order: ${dto.orderId}`);
+    for (const item of order.items) {
+      await this.prisma.product.update({
+        where: { id: item.productId },
+        data: {
+          stockQty: {
+            increment: item.quantity,
+          },
+        },
+      });
+
+      this.logger.log(
+        `Restored ${item.quantity} units to product: ${item.product.sku}`,
+      );
+    }
+
+    // Update order status to RETURNED
+    const returnedOrder = await this.prisma.salesOrder.update({
+      where: { id: dto.orderId },
+      data: {
+        status: 'RETURNED',
+        returnedAt: new Date(),
+        shippingCost: dto.shippingCost || 0,
+        cancellationReason: dto.reason,
+      },
+      include: {
+        staff: true,
+        items: {
+          include: {
+            product: true,
+          },
+        },
+      },
+    });
+
+    this.logger.log(
+      `Order marked as returned: ${dto.orderId}, shipping cost: ${dto.shippingCost || 0}`,
+    );
+    return returnedOrder;
   }
 }
 

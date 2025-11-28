@@ -18,6 +18,9 @@ import {
   ScanBarcodeDto,
   ConfirmSaleDto,
   UpdateItemDto,
+  UpdateOrderDto,
+  CancelOrderDto,
+  ReturnOrderDto,
 } from './dto';
 import { SearchPosProductsDto } from './dto/search-pos-products.dto';
 import { ApplyDiscountDto } from './dto/apply-discount.dto';
@@ -140,14 +143,64 @@ export class SalesController {
   }
 
   /**
+   * PATCH /api/sales/:orderId
+   * Update order metadata (customer info, payment method, notes)
+   */
+  @Patch(':orderId')
+  @ApiOperation({ summary: 'Update order metadata' })
+  @ApiResponse({ status: 200, description: 'Order updated successfully' })
+  @ApiResponse({ status: 404, description: 'Order not found' })
+  async updateOrder(
+    @Param('orderId') orderId: string,
+    @Body() dto: UpdateOrderDto,
+  ) {
+    return this.salesService.updateOrder(orderId, dto);
+  }
+
+  /**
    * POST /api/sales/:orderId/cancel
-   * Cancel a draft order
+   * Cancel an order with reason (supports both DRAFT and CONFIRMED orders)
+   * For CONFIRMED orders, restores stock to inventory
    */
   @Post(':orderId/cancel')
-  @ApiOperation({ summary: 'Cancel a draft sales order' })
-  @ApiResponse({ status: 200, description: 'Order canceled' })
-  async cancelOrder(@Param('orderId') orderId: string) {
-    return this.salesService.cancelOrder(orderId);
+  @ApiOperation({ summary: 'Cancel a sales order with reason' })
+  @ApiResponse({ status: 200, description: 'Order canceled and stock restored (if applicable)' })
+  @ApiResponse({ status: 400, description: 'Order already canceled or requires approval' })
+  @ApiResponse({ status: 404, description: 'Order not found' })
+  async cancelOrder(
+    @Param('orderId') orderId: string,
+    @Body() dto: { reason?: string; requiresApproval?: boolean },
+    @Request() req: any,
+  ) {
+    const userRole = req.user?.role;
+    const cancelDto: CancelOrderDto = {
+      orderId,
+      reason: dto.reason,
+      requiresApproval: dto.requiresApproval,
+    };
+    return this.salesService.cancelOrderWithReason(cancelDto, userRole);
+  }
+
+  /**
+   * POST /api/sales/:orderId/return
+   * Mark order as returned to warehouse
+   * Restores stock and tracks shipping cost for expense management
+   */
+  @Post(':orderId/return')
+  @ApiOperation({ summary: 'Mark order as returned to warehouse' })
+  @ApiResponse({ status: 200, description: 'Order marked as returned, stock restored' })
+  @ApiResponse({ status: 400, description: 'Only confirmed orders can be returned' })
+  @ApiResponse({ status: 404, description: 'Order not found' })
+  async returnOrder(
+    @Param('orderId') orderId: string,
+    @Body() dto: { shippingCost?: number; reason?: string },
+  ) {
+    const returnDto: ReturnOrderDto = {
+      orderId,
+      shippingCost: dto.shippingCost,
+      reason: dto.reason,
+    };
+    return this.salesService.returnOrder(returnDto);
   }
 
   /**
