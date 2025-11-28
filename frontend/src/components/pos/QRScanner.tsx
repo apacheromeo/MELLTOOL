@@ -10,7 +10,7 @@ interface QRScannerProps {
 
 export default function QRScanner({ onOrderScanned, onStartNew }: QRScannerProps) {
   const [manualInput, setManualInput] = useState('')
-  const [scanMode, setScanMode] = useState<'manual' | 'camera'>('manual')
+  const [scanMode, setScanMode] = useState<'manual' | 'camera'>('camera')
   const inputRef = useRef<HTMLInputElement>(null)
 
   const handleManualInput = (e: React.FormEvent) => {
