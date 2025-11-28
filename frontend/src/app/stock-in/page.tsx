@@ -43,6 +43,8 @@ export default function StockInPage() {
   const [selectedBrand, setSelectedBrand] = useState<string>('')
   const [selectedCategory, setSelectedCategory] = useState<string>('')
   const [searchQuery, setSearchQuery] = useState('')
+  const [searchResults, setSearchResults] = useState<any[]>([])
+  const [showSearchResults, setShowSearchResults] = useState(false)
   const [showProductSelector, setShowProductSelector] = useState(false)
   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
@@ -66,6 +68,17 @@ export default function StockInPage() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedBrand, selectedCategory, showProductSelector])
+
+  // Reload categories when brand changes
+  useEffect(() => {
+    if (selectedBrand) {
+      loadCategories(selectedBrand)
+      setSelectedCategory('') // Reset category when brand changes
+    } else {
+      loadCategories() // Load all categories when no brand selected
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedBrand])
 
   const loadStockIns = async () => {
     try {
@@ -131,13 +144,47 @@ export default function StockInPage() {
     }
   }
 
-  const loadCategories = async () => {
+  const loadCategories = async (brandId?: string) => {
     try {
-      const data = await api.getCategories()
+      const data = await api.getCategories(brandId)
       setCategories(data.filter((c: any) => c.isActive))
     } catch (err) {
       console.error('Failed to load categories:', err)
     }
+  }
+
+  // Autocomplete search handler (like POS)
+  const handleSearchChange = async (query: string) => {
+    setSearchQuery(query)
+
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current)
+    }
+
+    if (query.length < 2) {
+      setSearchResults([])
+      setShowSearchResults(false)
+      return
+    }
+
+    searchTimeoutRef.current = setTimeout(async () => {
+      try {
+        const results = await api.posAutocomplete(query)
+        setSearchResults(results)
+        setShowSearchResults(true)
+      } catch (err) {
+        console.error('Autocomplete search failed:', err)
+        setSearchResults([])
+      }
+    }, 300)
+  }
+
+  // Add product from autocomplete search
+  const handleSearchProductSelect = (product: any) => {
+    handleAddProductFromGrid(product)
+    setSearchQuery('')
+    setSearchResults([])
+    setShowSearchResults(false)
   }
 
   // Add product from grid view
@@ -770,15 +817,82 @@ export default function StockInPage() {
                   {/* Product Selector - POS Style */}
                   {showProductSelector && (
                     <div className="mb-6 border-2 border-blue-200 rounded-xl p-4 bg-blue-50">
-                      {/* Search Bar */}
-                      <div className="mb-4">
+                      {/* Search Bar with Autocomplete */}
+                      <div className="mb-4 relative">
                         <input
                           type="text"
-                          placeholder="🔍 Search: type any part of name, SKU, barcode... (e.g., 'autobot', 'lazer', 'storm')"
+                          placeholder="🔍 Quick search: Type product name, SKU, or barcode..."
                           value={searchQuery}
-                          onChange={(e) => setSearchQuery(e.target.value)}
+                          onChange={(e) => handleSearchChange(e.target.value)}
+                          onFocus={() => {
+                            if (searchQuery.length >= 2 && searchResults.length > 0) {
+                              setShowSearchResults(true)
+                            }
+                          }}
                           className="input w-full text-lg border-2 border-blue-300 focus:border-blue-500"
                         />
+                        {searchQuery && (
+                          <button
+                            onClick={() => {
+                              setSearchQuery('')
+                              setSearchResults([])
+                              setShowSearchResults(false)
+                            }}
+                            className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                          >
+                            ✕
+                          </button>
+                        )}
+
+                        {/* Autocomplete Dropdown */}
+                        {showSearchResults && searchResults.length > 0 && (
+                          <div className="absolute z-50 w-full mt-2 bg-white rounded-xl shadow-2xl border-2 border-blue-200 max-h-96 overflow-y-auto">
+                            {searchResults.map((product) => (
+                              <button
+                                key={product.id}
+                                type="button"
+                                onClick={() => handleSearchProductSelect(product)}
+                                className="w-full p-4 hover:bg-blue-50 transition-colors flex items-center gap-4 border-b border-gray-100 last:border-b-0 text-left"
+                              >
+                                {/* Product Image */}
+                                <div className="w-16 h-16 rounded-lg bg-gray-100 flex-shrink-0 flex items-center justify-center overflow-hidden">
+                                  {product.imageUrl ? (
+                                    <img
+                                      src={product.imageUrl.startsWith('http') ? product.imageUrl : `https://melltool-backend.fly.dev${product.imageUrl}`}
+                                      alt={product.name}
+                                      className="w-full h-full object-cover"
+                                    />
+                                  ) : (
+                                    <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                                    </svg>
+                                  )}
+                                </div>
+
+                                {/* Product Info */}
+                                <div className="flex-1 min-w-0">
+                                  <h3 className="font-bold text-gray-900 truncate">{product.name}</h3>
+                                  <p className="text-sm text-gray-600 truncate">{product.sku}</p>
+                                  <div className="flex items-center gap-3 mt-1">
+                                    <span className="font-bold text-blue-600">฿{product.costPrice?.toLocaleString() || 'N/A'}</span>
+                                    <span className={`text-xs px-2 py-1 rounded-full ${product.stockQty > 0 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                                      Stock: {product.stockQty || 0}
+                                    </span>
+                                  </div>
+                                </div>
+
+                                {/* Add Icon */}
+                                <div className="flex-shrink-0">
+                                  <div className="w-10 h-10 rounded-full bg-blue-600 text-white flex items-center justify-center">
+                                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                                    </svg>
+                                  </div>
+                                </div>
+                              </button>
+                            ))}
+                          </div>
+                        )}
 
                         {/* Search Status */}
                         <div className="flex items-center justify-between mt-2 text-sm">
