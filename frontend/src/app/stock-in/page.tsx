@@ -10,7 +10,7 @@ import { Html5Qrcode } from 'html5-qrcode'
 
 interface StockInItem {
   productId: string
-  quantity: number
+  qty: number
   unitCost: number
 }
 
@@ -148,14 +148,14 @@ export default function StockInPage() {
     if (existingIndex >= 0) {
       // Increment quantity if already exists
       const newItems = [...items]
-      newItems[existingIndex].quantity += 1
+      newItems[existingIndex].qty += 1
       setItems(newItems)
       alert(`✓ Increased quantity of ${product.name}`)
     } else {
       // Add new item
       const newItem: StockInItem = {
         productId: product.id,
-        quantity: 1,
+        qty: 1,
         unitCost: product.costPrice || 0
       }
       setItems([...items, newItem])
@@ -301,7 +301,7 @@ export default function StockInPage() {
         if (!product) return
 
         // Create one label for each unit in the quantity
-        for (let i = 0; i < item.quantity; i++) {
+        for (let i = 0; i < item.qty; i++) {
           labels.push({
             barcode: product.barcode || product.sku,
             name: product.name,
@@ -339,18 +339,18 @@ export default function StockInPage() {
   }
 
   const calculateTotal = () => {
-    return items.reduce((sum, item) => sum + (item.quantity * item.unitCost), 0)
+    return items.reduce((sum, item) => sum + (item.qty * item.unitCost), 0)
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    
+
     if (items.length === 0) {
       alert('Please add at least one item')
       return
     }
 
-    if (items.some(item => !item.productId || item.quantity <= 0 || item.unitCost <= 0)) {
+    if (items.some(item => !item.productId || item.qty <= 0 || item.unitCost <= 0)) {
       alert('Please fill in all item details correctly')
       return
     }
@@ -362,7 +362,7 @@ export default function StockInPage() {
         notes: formData.notes || undefined,
         items: items.map(item => ({
           productId: item.productId,
-          quantity: item.quantity,
+          qty: item.qty,
           unitCost: item.unitCost,
         })),
       }
@@ -482,7 +482,7 @@ export default function StockInPage() {
           date: stockIn.createdAt || new Date().toISOString(),
           type: 'IN' as const,
           product: item.product?.name || 'Unknown Product',
-          quantity: item.quantity || 0,
+          quantity: item.qty || 0,
           reference: stockIn.reference || 'N/A',
           notes: stockIn.notes || stockIn.supplier || '',
         }))
@@ -978,8 +978,8 @@ export default function StockInPage() {
                                       type="number"
                                       required
                                       min="1"
-                                      value={item.quantity}
-                                      onChange={(e) => updateItem(index, 'quantity', parseInt(e.target.value) || 1)}
+                                      value={item.qty}
+                                      onChange={(e) => updateItem(index, 'qty', parseInt(e.target.value) || 1)}
                                       className="input w-full"
                                     />
                                   </div>
@@ -1000,7 +1000,7 @@ export default function StockInPage() {
                                 <div className="mt-2 flex items-center justify-between">
                                   <span className="text-sm text-gray-600">Subtotal:</span>
                                   <span className="font-bold text-lg text-gray-900">
-                                    ฿{(item.quantity * item.unitCost).toLocaleString()}
+                                    ฿{(item.qty * item.unitCost).toLocaleString()}
                                   </span>
                                 </div>
                               </div>
@@ -1274,7 +1274,7 @@ function StockInCard({ stockIn, onReceive, onApprove, onReject, userRole }: any)
               <div key={item.id} className="flex justify-between text-sm">
                 <span className="text-gray-700">{item.product?.name || 'Unknown Product'}</span>
                 <span className="font-semibold text-gray-900">
-                  {item.quantity} units @ ฿{item.unitCost}
+                  {item.qty} units @ ฿{item.unitCost}
                 </span>
               </div>
             ))}
