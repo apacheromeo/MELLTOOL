@@ -3,20 +3,20 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import SidebarLayout from '@/components/SidebarLayout'
+import { api } from '@/lib/api'
 
 interface SalesOrder {
   id: string
   orderNumber: string
   customerName: string
   customerPhone: string
-  orderDate: string
-  totalItems: number
-  totalQuantity: number
-  totalAmount: number
+  createdAt: string
+  _count?: { items: number }
+  totalPrice: number
   profit: number
   paymentMethod: string
-  status: 'pending' | 'processing' | 'completed' | 'cancelled'
-  soldBy: string
+  status: 'DRAFT' | 'CONFIRMED' | 'CANCELED'
+  staff: { name: string }
   notes?: string
 }
 
@@ -24,6 +24,7 @@ export default function SalesOrdersPage() {
   const router = useRouter()
   const [orders, setOrders] = useState<SalesOrder[]>([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const [searchTerm, setSearchTerm] = useState('')
   const [filterStatus, setFilterStatus] = useState<string>('all')
   const [filterPayment, setFilterPayment] = useState<string>('all')
@@ -31,113 +32,32 @@ export default function SalesOrdersPage() {
 
   useEffect(() => {
     loadOrders()
-  }, [])
+  }, [filterStatus])
 
-  const loadOrders = () => {
-    setLoading(true)
-    setTimeout(() => {
-      setOrders([
-        {
-          id: '1',
-          orderNumber: 'SO-2024-001',
-          customerName: 'Somchai Prasert',
-          customerPhone: '+66-81-234-5678',
-          orderDate: '2024-10-26 14:30',
-          totalItems: 3,
-          totalQuantity: 5,
-          totalAmount: 2450,
-          profit: 850,
-          paymentMethod: 'Cash',
-          status: 'completed',
-          soldBy: 'Staff A',
-          notes: 'Regular customer'
-        },
-        {
-          id: '2',
-          orderNumber: 'SO-2024-002',
-          customerName: 'Suda Wongsakul',
-          customerPhone: '+66-82-345-6789',
-          orderDate: '2024-10-26 15:15',
-          totalItems: 2,
-          totalQuantity: 3,
-          totalAmount: 1800,
-          profit: 600,
-          paymentMethod: 'Credit Card',
-          status: 'completed',
-          soldBy: 'Staff B'
-        },
-        {
-          id: '3',
-          orderNumber: 'SO-2024-003',
-          customerName: 'Niran Chaiyaporn',
-          customerPhone: '+66-83-456-7890',
-          orderDate: '2024-10-26 16:00',
-          totalItems: 5,
-          totalQuantity: 8,
-          totalAmount: 4200,
-          profit: 1400,
-          paymentMethod: 'Bank Transfer',
-          status: 'processing',
-          soldBy: 'Staff A',
-          notes: 'Waiting for payment confirmation'
-        },
-        {
-          id: '4',
-          orderNumber: 'SO-2024-004',
-          customerName: 'Preecha Suksan',
-          customerPhone: '+66-84-567-8901',
-          orderDate: '2024-10-25 10:20',
-          totalItems: 1,
-          totalQuantity: 2,
-          totalAmount: 900,
-          profit: 300,
-          paymentMethod: 'Cash',
-          status: 'completed',
-          soldBy: 'Staff C'
-        },
-        {
-          id: '5',
-          orderNumber: 'SO-2024-005',
-          customerName: 'Kanokwan Thongchai',
-          customerPhone: '+66-85-678-9012',
-          orderDate: '2024-10-25 11:45',
-          totalItems: 4,
-          totalQuantity: 6,
-          totalAmount: 3150,
-          profit: 1050,
-          paymentMethod: 'E-Wallet',
-          status: 'completed',
-          soldBy: 'Staff B'
-        },
-        {
-          id: '6',
-          orderNumber: 'SO-2024-006',
-          customerName: 'Wichai Pattana',
-          customerPhone: '+66-86-789-0123',
-          orderDate: '2024-10-24 14:00',
-          totalItems: 2,
-          totalQuantity: 4,
-          totalAmount: 1600,
-          profit: 500,
-          paymentMethod: 'Cash',
-          status: 'cancelled',
-          soldBy: 'Staff A',
-          notes: 'Customer changed mind'
-        }
-      ])
+  const loadOrders = async () => {
+    try {
+      setLoading(true)
+      setError(null)
+      const data = await api.getSalesHistory({
+        status: filterStatus === 'all' ? undefined : filterStatus,
+        limit: 100
+      })
+      setOrders(data.orders || [])
+    } catch (err: any) {
+      setError(err.message || 'Failed to load sales orders')
+      console.error('Load orders error:', err)
+    } finally {
       setLoading(false)
-    }, 500)
+    }
   }
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'pending':
+      case 'DRAFT':
         return 'bg-yellow-100 text-yellow-800 border-yellow-300'
-      case 'processing':
-        return 'bg-blue-100 text-blue-800 border-blue-300'
-      case 'completed':
+      case 'CONFIRMED':
         return 'bg-green-100 text-green-800 border-green-300'
-      case 'cancelled':
+      case 'CANCELED':
         return 'bg-red-100 text-red-800 border-red-300'
       default:
         return 'bg-gray-100 text-gray-800 border-gray-300'
@@ -146,13 +66,11 @@ export default function SalesOrdersPage() {
 
   const getStatusIcon = (status: string) => {
     switch (status) {
-      case 'pending':
-        return '⏳'
-      case 'processing':
-        return '🔄'
-      case 'completed':
+      case 'DRAFT':
+        return '📝'
+      case 'CONFIRMED':
         return '✅'
-      case 'cancelled':
+      case 'CANCELED':
         return '❌'
       default:
         return '📋'
@@ -163,32 +81,31 @@ export default function SalesOrdersPage() {
     if (filterStatus !== 'all' && order.status !== filterStatus) return false
     if (filterPayment !== 'all' && order.paymentMethod !== filterPayment) return false
     if (searchTerm && !order.orderNumber.toLowerCase().includes(searchTerm.toLowerCase()) &&
-        !order.customerName.toLowerCase().includes(searchTerm.toLowerCase())) return false
-    
+        !(order.customerName || '').toLowerCase().includes(searchTerm.toLowerCase())) return false
+
     // Date range filter
     if (dateRange !== 'all') {
-      const orderDate = new Date(order.orderDate)
+      const orderDate = new Date(order.createdAt)
       const today = new Date()
       const diffDays = Math.floor((today.getTime() - orderDate.getTime()) / (1000 * 60 * 60 * 24))
-      
+
       if (dateRange === 'today' && diffDays !== 0) return false
       if (dateRange === 'week' && diffDays > 7) return false
       if (dateRange === 'month' && diffDays > 30) return false
     }
-    
+
     return true
   })
 
-  const totalRevenue = filteredOrders.reduce((sum, o) => sum + o.totalAmount, 0)
+  const totalRevenue = filteredOrders.reduce((sum, o) => sum + o.totalPrice, 0)
   const totalProfit = filteredOrders.reduce((sum, o) => sum + o.profit, 0)
   const totalOrders = filteredOrders.length
   const avgOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0
 
   const statusCounts = {
-    pending: orders.filter(o => o.status === 'pending').length,
-    processing: orders.filter(o => o.status === 'processing').length,
-    completed: orders.filter(o => o.status === 'completed').length,
-    cancelled: orders.filter(o => o.status === 'cancelled').length
+    DRAFT: orders.filter(o => o.status === 'DRAFT').length,
+    CONFIRMED: orders.filter(o => o.status === 'CONFIRMED').length,
+    CANCELED: orders.filter(o => o.status === 'CANCELED').length
   }
 
   return (
@@ -271,6 +188,18 @@ export default function SalesOrdersPage() {
           </div>
         </div>
 
+        {/* Error Display */}
+        {error && (
+          <div className="card p-4 border-l-4 border-red-500 bg-red-50 mb-6">
+            <div className="flex items-center gap-3">
+              <svg className="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <p className="text-red-900">{error}</p>
+            </div>
+          </div>
+        )}
+
         {/* Status Tabs */}
         <div className="card p-4 mb-6">
           <div className="flex flex-wrap gap-2">
@@ -285,44 +214,34 @@ export default function SalesOrdersPage() {
               All ({orders.length})
             </button>
             <button
-              onClick={() => setFilterStatus('pending')}
+              onClick={() => setFilterStatus('DRAFT')}
               className={`px-4 py-2 rounded-lg font-medium transition flex items-center gap-2 ${
-                filterStatus === 'pending'
+                filterStatus === 'DRAFT'
                   ? 'bg-yellow-600 text-white'
                   : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
               }`}
             >
-              ⏳ Pending ({statusCounts.pending})
+              📝 Draft ({statusCounts.DRAFT})
             </button>
             <button
-              onClick={() => setFilterStatus('processing')}
+              onClick={() => setFilterStatus('CONFIRMED')}
               className={`px-4 py-2 rounded-lg font-medium transition flex items-center gap-2 ${
-                filterStatus === 'processing'
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-              }`}
-            >
-              🔄 Processing ({statusCounts.processing})
-            </button>
-            <button
-              onClick={() => setFilterStatus('completed')}
-              className={`px-4 py-2 rounded-lg font-medium transition flex items-center gap-2 ${
-                filterStatus === 'completed'
+                filterStatus === 'CONFIRMED'
                   ? 'bg-green-600 text-white'
                   : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
               }`}
             >
-              ✅ Completed ({statusCounts.completed})
+              ✅ Confirmed ({statusCounts.CONFIRMED})
             </button>
             <button
-              onClick={() => setFilterStatus('cancelled')}
+              onClick={() => setFilterStatus('CANCELED')}
               className={`px-4 py-2 rounded-lg font-medium transition flex items-center gap-2 ${
-                filterStatus === 'cancelled'
+                filterStatus === 'CANCELED'
                   ? 'bg-red-600 text-white'
                   : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
               }`}
             >
-              ❌ Cancelled ({statusCounts.cancelled})
+              ❌ Canceled ({statusCounts.CANCELED})
             </button>
           </div>
         </div>
@@ -419,34 +338,35 @@ export default function SalesOrdersPage() {
                     <tr key={order.id} className="hover:bg-gray-50 transition">
                       <td className="px-6 py-4">
                         <div className="font-semibold text-gray-900">{order.orderNumber}</div>
-                        <div className="text-xs text-gray-500">by {order.soldBy}</div>
+                        <div className="text-xs text-gray-500">by {order.staff?.name || 'Unknown'}</div>
                       </td>
                       <td className="px-6 py-4">
-                        <div className="font-medium text-gray-900">{order.customerName}</div>
-                        <div className="text-sm text-gray-600">{order.customerPhone}</div>
+                        <div className="font-medium text-gray-900">{order.customerName || 'Walk-in'}</div>
+                        <div className="text-sm text-gray-600">{order.customerPhone || '-'}</div>
                       </td>
                       <td className="px-6 py-4">
-                        <span className="text-sm text-gray-700">{order.orderDate}</span>
+                        <span className="text-sm text-gray-700">
+                          {new Date(order.createdAt).toLocaleString()}
+                        </span>
                       </td>
                       <td className="px-6 py-4">
                         <div className="text-sm">
-                          <div className="font-semibold text-gray-900">{order.totalItems} items</div>
-                          <div className="text-gray-600">{order.totalQuantity} units</div>
+                          <div className="font-semibold text-gray-900">{order._count?.items || 0} items</div>
                         </div>
                       </td>
                       <td className="px-6 py-4">
-                        <span className="font-semibold text-gray-900">฿{order.totalAmount.toLocaleString()}</span>
+                        <span className="font-semibold text-gray-900">฿{order.totalPrice.toLocaleString()}</span>
                       </td>
                       <td className="px-6 py-4">
                         <span className="font-semibold text-green-600">฿{order.profit.toLocaleString()}</span>
                       </td>
                       <td className="px-6 py-4">
-                        <span className="badge badge-blue">{order.paymentMethod}</span>
+                        <span className="badge badge-blue">{order.paymentMethod || 'Cash'}</span>
                       </td>
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-2">
                           <span className="text-xl">{getStatusIcon(order.status)}</span>
-                          <span className={`badge ${getStatusColor(order.status)} capitalize`}>
+                          <span className={`badge ${getStatusColor(order.status)}`}>
                             {order.status}
                           </span>
                         </div>
