@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import SidebarLayout from '@/components/SidebarLayout'
 import { exportLowStockReportPDF } from '@/lib/pdf-export'
+import { api } from '@/lib/api'
 
 interface LowStockProduct {
   id: string
@@ -34,103 +35,54 @@ export default function LowStockPage() {
     loadLowStockProducts()
   }, [])
 
-  const loadLowStockProducts = () => {
+  const loadLowStockProducts = async () => {
     setLoading(true)
-    setTimeout(() => {
-      setProducts([
-        {
-          id: '1',
-          sku: 'VAC-FILTER-001',
-          name: 'HEPA Filter H13',
-          nameTh: 'ฟิลเตอร์ HEPA H13',
-          category: 'Filters',
-          currentStock: 5,
-          minStock: 20,
-          maxStock: 100,
-          stockPercentage: 5,
-          lastRestocked: '2024-10-15',
-          urgency: 'critical',
-          price: 450,
-          supplier: 'FilterPro Co.'
-        },
-        {
-          id: '2',
-          sku: 'VAC-BAT-002',
-          name: 'Lithium Battery 2500mAh',
-          nameTh: 'แบตเตอรี่ลิเธียม 2500mAh',
-          category: 'Batteries',
-          currentStock: 12,
-          minStock: 30,
-          maxStock: 150,
-          stockPercentage: 8,
-          lastRestocked: '2024-10-10',
-          urgency: 'critical',
-          price: 1200,
-          supplier: 'PowerCell Ltd.'
-        },
-        {
-          id: '3',
-          sku: 'VAC-BRUSH-003',
-          name: 'Rotating Brush Head',
-          nameTh: 'หัวแปรงหมุน',
-          category: 'Brushes',
-          currentStock: 25,
-          minStock: 50,
-          maxStock: 200,
-          stockPercentage: 12.5,
-          lastRestocked: '2024-10-12',
-          urgency: 'warning',
-          price: 350,
-          supplier: 'BrushMaster Inc.'
-        },
-        {
-          id: '4',
-          sku: 'VAC-MOTOR-004',
-          name: 'DC Motor 1000W',
-          nameTh: 'มอเตอร์ DC 1000W',
-          category: 'Motors',
-          currentStock: 8,
-          minStock: 15,
-          maxStock: 50,
-          stockPercentage: 16,
-          lastRestocked: '2024-10-08',
-          urgency: 'warning',
-          price: 2500,
-          supplier: 'MotorWorks Co.'
-        },
-        {
-          id: '5',
-          sku: 'VAC-HOSE-005',
-          name: 'Flexible Hose 2m',
-          nameTh: 'ท่อยืดหยุ่น 2 เมตร',
-          category: 'Parts',
-          currentStock: 35,
-          minStock: 60,
-          maxStock: 300,
-          stockPercentage: 11.7,
-          lastRestocked: '2024-10-18',
-          urgency: 'low',
-          price: 280,
-          supplier: 'HosePro Ltd.'
-        },
-        {
-          id: '6',
-          sku: 'VAC-WHEEL-006',
-          name: 'Replacement Wheels Set',
-          nameTh: 'ชุดล้อสำรอง',
-          category: 'Parts',
-          currentStock: 18,
-          minStock: 40,
-          maxStock: 120,
-          stockPercentage: 15,
-          lastRestocked: '2024-10-20',
-          urgency: 'low',
-          price: 180,
-          supplier: 'WheelTech Co.'
+    try {
+      const response = await api.getLowStockProducts()
+
+      // Transform backend data to component format
+      const transformedProducts: LowStockProduct[] = response.map((product: any) => {
+        const currentStock = product.stockQty || 0
+        const minStock = product.minStock || 0
+        const maxStock = product.maxStock || 100
+
+        // Calculate stock percentage relative to min stock
+        const stockPercentage = minStock > 0 ? (currentStock / minStock) * 100 : 0
+
+        // Determine urgency based on stock percentage
+        let urgency: 'critical' | 'warning' | 'low'
+        if (stockPercentage < 50) {
+          urgency = 'critical'
+        } else if (stockPercentage < 80) {
+          urgency = 'warning'
+        } else {
+          urgency = 'low'
         }
-      ])
+
+        return {
+          id: product.id,
+          sku: product.sku,
+          name: product.name,
+          nameTh: product.nameTh || product.name,
+          category: product.category?.name || 'Uncategorized',
+          currentStock,
+          minStock,
+          maxStock,
+          stockPercentage,
+          lastRestocked: product.updatedAt || product.createdAt,
+          urgency,
+          price: product.sellPrice || 0,
+          supplier: product.brand?.name || 'N/A'
+        }
+      })
+
+      setProducts(transformedProducts)
+    } catch (error) {
+      console.error('Failed to load low stock products:', error)
+      alert('Failed to load low stock products. Please try again.')
+    } finally {
       setLoading(false)
-    }, 500)
+    }
   }
 
   const getUrgencyColor = (urgency: string) => {
