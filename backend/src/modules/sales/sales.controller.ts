@@ -27,6 +27,8 @@ import { ApplyDiscountDto } from './dto/apply-discount.dto';
 import { QuickStartDto } from './dto/quick-start.dto';
 import { AutocompleteDto } from './dto/autocomplete.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { Roles } from '../auth/decorators/roles.decorator';
+import { UserRole } from '@prisma/client';
 
 /**
  * Sales Controller
@@ -201,6 +203,92 @@ export class SalesController {
       reason: dto.reason,
     };
     return this.salesService.returnOrder(returnDto);
+  }
+
+  /**
+   * POST /api/sales/:orderId/request-cancellation
+   * Create a cancellation request (STAFF only)
+   * Requires admin approval to actually cancel
+   */
+  @Post(':orderId/request-cancellation')
+  @ApiOperation({ summary: 'Request order cancellation (STAFF users)' })
+  @ApiResponse({ status: 201, description: 'Cancellation request created' })
+  @ApiResponse({ status: 400, description: 'Invalid request or pending request exists' })
+  @ApiResponse({ status: 404, description: 'Order not found' })
+  async requestCancellation(
+    @Param('orderId') orderId: string,
+    @Body() dto: { reason: string },
+    @Request() req,
+  ) {
+    return this.salesService.createCancellationRequest(
+      orderId,
+      dto.reason,
+      req.user.id,
+    );
+  }
+
+  /**
+   * GET /api/sales/cancellation-requests/pending
+   * Get all pending cancellation requests (OWNER/MOD only)
+   */
+  @Get('cancellation-requests/pending')
+  @Roles(UserRole.OWNER, UserRole.MOD)
+  @ApiOperation({ summary: 'Get pending cancellation requests (Admin only)' })
+  @ApiResponse({ status: 200, description: 'List of pending requests' })
+  async getPendingCancellationRequests() {
+    return this.salesService.getPendingCancellationRequests();
+  }
+
+  /**
+   * GET /api/sales/cancellation-requests
+   * Get all cancellation requests with optional status filter (OWNER/MOD only)
+   */
+  @Get('cancellation-requests')
+  @Roles(UserRole.OWNER, UserRole.MOD)
+  @ApiOperation({ summary: 'Get all cancellation requests (Admin only)' })
+  @ApiQuery({ name: 'status', required: false, enum: ['PENDING_APPROVAL', 'APPROVED', 'REJECTED'] })
+  @ApiResponse({ status: 200, description: 'List of cancellation requests' })
+  async getCancellationRequests(@Query('status') status?: string) {
+    return this.salesService.getCancellationRequests(status);
+  }
+
+  /**
+   * POST /api/sales/cancellation-requests/:requestId/approve
+   * Approve a cancellation request (OWNER/MOD only)
+   */
+  @Post('cancellation-requests/:requestId/approve')
+  @Roles(UserRole.OWNER, UserRole.MOD)
+  @ApiOperation({ summary: 'Approve cancellation request (Admin only)' })
+  @ApiResponse({ status: 200, description: 'Request approved, order canceled' })
+  @ApiResponse({ status: 400, description: 'Request already processed or invalid' })
+  @ApiResponse({ status: 404, description: 'Request not found' })
+  async approveCancellationRequest(
+    @Param('requestId') requestId: string,
+    @Request() req,
+  ) {
+    return this.salesService.approveCancellationRequest(requestId, req.user.id);
+  }
+
+  /**
+   * POST /api/sales/cancellation-requests/:requestId/reject
+   * Reject a cancellation request (OWNER/MOD only)
+   */
+  @Post('cancellation-requests/:requestId/reject')
+  @Roles(UserRole.OWNER, UserRole.MOD)
+  @ApiOperation({ summary: 'Reject cancellation request (Admin only)' })
+  @ApiResponse({ status: 200, description: 'Request rejected' })
+  @ApiResponse({ status: 400, description: 'Request already processed' })
+  @ApiResponse({ status: 404, description: 'Request not found' })
+  async rejectCancellationRequest(
+    @Param('requestId') requestId: string,
+    @Body() dto: { reason: string },
+    @Request() req,
+  ) {
+    return this.salesService.rejectCancellationRequest(
+      requestId,
+      req.user.id,
+      dto.reason,
+    );
   }
 
   /**

@@ -102,6 +102,7 @@ export default function Sidebar() {
         { name: 'Desktop POS', nameTh: 'จุดขายเดสก์ท็อป', href: '/sales' },
         { name: 'Sales Orders', nameTh: 'คำสั่งขาย', href: '/sales/orders' },
         { name: 'Sales History', nameTh: 'ประวัติการขาย', href: '/sales/history' },
+        { name: 'Cancellation Requests', nameTh: 'คำขอยกเลิก', href: '/sales/cancellation-requests' },
         { name: 'Daily Reports', nameTh: 'รายงานรายวัน', href: '/sales/reports' },
         { name: 'Customers', nameTh: 'ลูกค้า', href: '/sales/customers' },
       ]
@@ -322,23 +323,31 @@ export default function Sidebar() {
                 {/* Sub Menu Items */}
                 {!isCollapsed && hasSubItems && isExpanded && (
                   <div className="ml-8 md:ml-10 mt-1 md:mt-2 space-y-1 md:space-y-1.5 animate-fade-in">
-                    {item.subItems!.map((subItem) => {
-                      const subActive = pathname === subItem.href
-                      return (
-                        <Link
-                          key={subItem.href}
-                          href={subItem.href}
-                          className={`block px-3 md:px-4 py-2 md:py-2.5 rounded-lg md:rounded-xl text-sm md:text-base transition-all duration-200 touch-manipulation ${
-                            subActive
-                              ? 'bg-blue-50 text-blue-600 font-semibold border-l-2 md:border-l-3 border-blue-600'
-                              : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-                          }`}
-                        >
-                          <div>{subItem.name}</div>
-                          <div className="text-xs md:text-sm text-gray-500">{subItem.nameTh}</div>
-                        </Link>
-                      )
-                    })}
+                    {item.subItems!
+                      .filter((subItem) => {
+                        // Hide cancellation requests from STAFF users
+                        if (subItem.href === '/sales/cancellation-requests' && user?.role === 'STAFF') {
+                          return false
+                        }
+                        return true
+                      })
+                      .map((subItem) => {
+                        const subActive = pathname === subItem.href
+                        return (
+                          <Link
+                            key={subItem.href}
+                            href={subItem.href}
+                            className={`block px-3 md:px-4 py-2 md:py-2.5 rounded-lg md:rounded-xl text-sm md:text-base transition-all duration-200 touch-manipulation ${
+                              subActive
+                                ? 'bg-blue-50 text-blue-600 font-semibold border-l-2 md:border-l-3 border-blue-600'
+                                : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                            }`}
+                          >
+                            <div>{subItem.name}</div>
+                            <div className="text-xs md:text-sm text-gray-500">{subItem.nameTh}</div>
+                          </Link>
+                        )
+                      })}
                   </div>
                 )}
               </div>

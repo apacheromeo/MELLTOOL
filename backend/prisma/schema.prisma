@@ -33,6 +33,8 @@ model User {
   printJobs         PrintJob[]
   salesOrders       SalesOrder[]
   expenses          Expense[]
+  cancellationRequests        CancellationRequest[] @relation("CancellationRequests")
+  approvedCancellationRequests CancellationRequest[] @relation("CancellationApprovals")
 
   @@index([email])
   @@index([role])
@@ -455,6 +457,7 @@ model SalesOrder {
   staff        User           @relation(fields: [staffId], references: [id])
 
   items        SalesItem[]
+  cancellationRequests CancellationRequest[]
 
   // Timestamps
   confirmedAt  DateTime?
@@ -526,6 +529,39 @@ model SalesItem {
   @@index([orderId])
   @@index([productId])
   @@map("sales_items")
+}
+
+// Cancellation Request for Sales Orders (STAFF approval workflow)
+model CancellationRequest {
+  id               String          @id @default(cuid())
+
+  // Order relation
+  orderId          String
+  order            SalesOrder      @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  // Request details
+  reason           String          // Reason for cancellation
+  approvalStatus   ApprovalStatus  @default(PENDING_APPROVAL)
+
+  // User relations
+  requestedById    String          // STAFF user who requested
+  requestedBy      User            @relation("CancellationRequests", fields: [requestedById], references: [id])
+
+  approvedById     String?         // OWNER/MOD who approved/rejected
+  approvedBy       User?           @relation("CancellationApprovals", fields: [approvedById], references: [id])
+
+  rejectionReason  String?         // Reason if rejected
+
+  // Timestamps
+  createdAt        DateTime        @default(now())
+  approvedAt       DateTime?       // When approved or rejected
+  updatedAt        DateTime        @updatedAt
+
+  @@index([orderId])
+  @@index([requestedById])
+  @@index([approvalStatus])
+  @@index([createdAt])
+  @@map("cancellation_requests")
 }
 
 // Daily Sales Summary (for reporting)
