@@ -556,9 +556,35 @@ class ApiClient {
     });
   }
 
-  async cancelSale(orderId: string) {
+  async updateOrder(orderId: string, data: {
+    customerName?: string;
+    customerPhone?: string;
+    paymentMethod?: string;
+    notes?: string;
+  }) {
+    return this.request(`/sales/${orderId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async cancelSale(orderId: string, data?: {
+    reason?: string;
+    requiresApproval?: boolean;
+  }) {
     return this.request(`/sales/${orderId}/cancel`, {
       method: 'POST',
+      body: JSON.stringify(data || {}),
+    });
+  }
+
+  async returnOrder(orderId: string, data: {
+    shippingCost?: number;
+    reason?: string;
+  }) {
+    return this.request(`/sales/${orderId}/return`, {
+      method: 'POST',
+      body: JSON.stringify(data),
     });
   }
 
