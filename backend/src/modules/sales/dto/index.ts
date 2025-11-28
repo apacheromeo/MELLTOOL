@@ -7,6 +7,9 @@ export * from './search-pos-products.dto';
 export * from './apply-discount.dto';
 export * from './quick-start.dto';
 export * from './autocomplete.dto';
+export * from './update-order.dto';
+export * from './cancel-order.dto';
+export * from './return-order.dto';
 
 
 

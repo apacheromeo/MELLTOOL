@@ -439,33 +439,36 @@ model AuditLog {
 model SalesOrder {
   id           String         @id @default(cuid())
   orderNumber  String         @unique // Barcode-scannable order number
-  
+
   // Financial
   totalCost    Float          @default(0) // Total cost of goods sold
   totalPrice   Float          @default(0) // Total selling price
   profit       Float          @default(0) // totalPrice - totalCost
-  
+  shippingCost Float?         // Shipping cost for returns
+
   // Status
   status       SalesStatus    @default(DRAFT)
-  
+
   // Relations
   staffId      String
   staff        User           @relation(fields: [staffId], references: [id])
-  
+
   items        SalesItem[]
-  
+
   // Timestamps
   confirmedAt  DateTime?
   canceledAt   DateTime?
+  returnedAt   DateTime?      // When order was marked as returned
   createdAt    DateTime       @default(now())
   updatedAt    DateTime       @updatedAt
-  
+
   // Metadata
   notes        String?
   paymentMethod String?       // CASH, CARD, TRANSFER, etc.
   customerName  String?
   customerPhone String?
-  
+  cancellationReason String?  // Reason for cancellation/return
+
   @@index([staffId])
   @@index([status])
   @@index([createdAt])
@@ -477,6 +480,7 @@ enum SalesStatus {
   CONFIRMED  // Sale completed, stock cut
   CANCELED   // Order canceled
   REFUNDED   // Order refunded (stock restored)
+  RETURNED   // Order returned to warehouse
 }
 
 // Sales Order Items

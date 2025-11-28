@@ -102,9 +102,9 @@ export default function SalesHistoryPage() {
 
         {/* Filters */}
         <div className="card p-4 mb-6">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <span className="text-sm font-medium text-gray-700">Filter:</span>
-            {['ALL', 'DRAFT', 'CONFIRMED', 'CANCELED'].map((status) => (
+            {['ALL', 'DRAFT', 'CONFIRMED', 'CANCELED', 'RETURNED'].map((status) => (
               <button
                 key={status}
                 onClick={() => setFilter(status)}
@@ -152,6 +152,7 @@ export default function SalesHistoryPage() {
                       <span className={`badge ${
                         order.status === 'CONFIRMED' ? 'badge-green' :
                         order.status === 'DRAFT' ? 'badge-yellow' :
+                        order.status === 'RETURNED' ? 'badge-blue' :
                         'badge-red'
                       }`}>
                         {order.status}
