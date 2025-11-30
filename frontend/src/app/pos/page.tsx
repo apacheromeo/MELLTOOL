@@ -179,9 +179,21 @@ function POSPageContent() {
       if (orderData.orderNumber) {
         try {
           const existingOrder = await api.getSalesOrderByNumber(orderData.orderNumber)
-          setExistingOrder(existingOrder)
-          setScannedItems({})
-          setViewMode('fulfillment')
+
+          // Check order status
+          if (existingOrder.status === 'DRAFT') {
+            // For DRAFT orders, load as current order so staff can continue adding items
+            setCurrentOrder(existingOrder)
+            setExistingOrder(null)
+            setScannedItems({})
+            setViewMode('brands')
+          } else {
+            // For CONFIRMED/other orders, go to fulfillment mode
+            setExistingOrder(existingOrder)
+            setCurrentOrder(null)
+            setScannedItems({})
+            setViewMode('fulfillment')
+          }
           return
         } catch (fetchErr: any) {
           console.log('Order not found, creating new:', fetchErr.message)
