@@ -1840,7 +1840,12 @@ export class SalesService {
       where,
       include: {
         order: {
-          include: {
+          select: {
+            id: true,
+            orderNumber: true,
+            status: true,
+            totalPrice: true,
+            createdAt: true,
             staff: {
               select: {
                 id: true,
@@ -1854,7 +1859,6 @@ export class SalesService {
                 productName: true,
                 quantity: true,
                 unitPrice: true,
-                subtotal: true,
               },
             },
           },
