@@ -103,7 +103,14 @@ function POSPageContent() {
       if (categoryId) params.category = categoryId
 
       const data = await api.getProducts(params)
-      setProducts(data.products || [])
+      // Filter out master products that are not visible (hide master variants in POS)
+      const filteredProducts = (data.products || []).filter((p: any) => {
+        // Show the product if:
+        // 1. It's not a master product (isMaster = false), OR
+        // 2. It's a master product but visible (isMaster = true AND isVisible = true)
+        return !p.isMaster || (p.isMaster && p.isVisible)
+      })
+      setProducts(filteredProducts)
     } catch (err) {
       console.error('Failed to load products:', err)
       setError('Failed to load products')
