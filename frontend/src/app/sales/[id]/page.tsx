@@ -1,14 +1,16 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { useParams, useRouter } from 'next/navigation'
+import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import { api } from '@/lib/api'
 import Sidebar from '@/components/Sidebar'
 
 export default function SalesOrderDetailPage() {
   const params = useParams()
   const router = useRouter()
+  const searchParams = useSearchParams()
   const orderId = params.id as string
+  const returnTo = searchParams.get('returnTo')
 
   const [order, setOrder] = useState<any>(null)
   const [loading, setLoading] = useState(true)
@@ -65,6 +67,16 @@ export default function SalesOrderDetailPage() {
       setUser(profile)
     } catch (err) {
       console.error('Failed to load user profile:', err)
+    }
+  }
+
+  const handleBack = () => {
+    if (returnTo === 'pos-orders') {
+      // Navigate back to POS with orders view
+      router.push('/pos?view=orders')
+    } else {
+      // Default back navigation
+      router.back()
     }
   }
 
@@ -155,7 +167,7 @@ export default function SalesOrderDetailPage() {
             <p className="text-red-900">{error || 'Order not found'}</p>
           </div>
           <button
-            onClick={() => router.back()}
+            onClick={handleBack}
             className="btn-secondary mt-4"
           >
             Go Back
@@ -183,7 +195,7 @@ export default function SalesOrderDetailPage() {
             </div>
             <div className="flex gap-3">
               <button
-                onClick={() => router.back()}
+                onClick={handleBack}
                 className="btn-secondary flex items-center gap-2"
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
