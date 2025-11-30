@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { api } from '@/lib/api'
 import { useAuth } from '@/contexts/AuthContext'
 import ProtectedRoute from '@/components/ProtectedRoute'
@@ -18,6 +18,7 @@ type ViewMode = 'scanner' | 'fulfillment' | 'brands' | 'categories' | 'products'
 function POSPageContent() {
   const { user } = useAuth()
   const router = useRouter()
+  const searchParams = useSearchParams()
   // Navigation state
   const [viewMode, setViewMode] = useState<ViewMode>('scanner')
   const [selectedBrand, setSelectedBrand] = useState<any>(null)
@@ -52,15 +53,22 @@ function POSPageContent() {
 
   // Reset state when component mounts or user changes
   useEffect(() => {
-    // Reset to scanner view on mount to prevent getting stuck
-    setViewMode('scanner')
-    setExistingOrder(null)
-    setCurrentOrder(null)
-    setScannedItems({})
-    setCartItems([])
-    setSelectedBrand(null)
-    setSelectedCategory(null)
-  }, [user?.id])
+    // Check if returning from order detail page
+    const viewParam = searchParams.get('view')
+    if (viewParam === 'orders') {
+      setViewMode('orders')
+      loadOrders()
+    } else {
+      // Reset to scanner view on mount to prevent getting stuck
+      setViewMode('scanner')
+      setExistingOrder(null)
+      setCurrentOrder(null)
+      setScannedItems({})
+      setCartItems([])
+      setSelectedBrand(null)
+      setSelectedCategory(null)
+    }
+  }, [user?.id, searchParams])
 
   // Update cart items when order changes
   useEffect(() => {
@@ -757,7 +765,7 @@ function POSPageContent() {
                           <td className="px-6 py-4">
                             <div className="flex items-center justify-end gap-2">
                               <button
-                                onClick={() => router.push(`/sales/${order.id}`)}
+                                onClick={() => router.push(`/sales/${order.id}?returnTo=pos-orders`)}
                                 className="btn-secondary text-xs px-3 py-1.5"
                               >
                                 View
