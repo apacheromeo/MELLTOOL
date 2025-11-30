@@ -648,6 +648,10 @@ class ApiClient {
     return this.request(`/sales?${query}`);
   }
 
+  async getSalesOrders(params?: { limit?: number; status?: string }) {
+    return this.getSalesHistory(params);
+  }
+
   async getDailySalesReport(date?: string) {
     const query = date ? `?date=${date}` : '';
     return this.request(`/sales/report/daily${query}`);
