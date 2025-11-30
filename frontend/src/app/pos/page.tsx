@@ -47,6 +47,18 @@ function POSPageContent() {
     loadBrands()
   }, [])
 
+  // Reset state when component mounts or user changes
+  useEffect(() => {
+    // Reset to scanner view on mount to prevent getting stuck
+    setViewMode('scanner')
+    setExistingOrder(null)
+    setCurrentOrder(null)
+    setScannedItems({})
+    setCartItems([])
+    setSelectedBrand(null)
+    setSelectedCategory(null)
+  }, [user?.id])
+
   // Update cart items when order changes
   useEffect(() => {
     if (currentOrder?.items) {
@@ -280,7 +292,12 @@ function POSPageContent() {
   }
 
   const handleBack = () => {
-    if (viewMode === 'products') {
+    if (viewMode === 'fulfillment') {
+      // Go back to scanner from fulfillment
+      setExistingOrder(null)
+      setScannedItems({})
+      setViewMode('scanner')
+    } else if (viewMode === 'products') {
       setViewMode('categories')
       setSelectedCategory(null)
     } else if (viewMode === 'categories') {
