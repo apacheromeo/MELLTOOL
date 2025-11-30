@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback, useRef } from 'react'
+import { useRouter } from 'next/navigation'
 import { api } from '@/lib/api'
 import { useAuth } from '@/contexts/AuthContext'
 import ProtectedRoute from '@/components/ProtectedRoute'
@@ -16,6 +17,7 @@ type ViewMode = 'scanner' | 'fulfillment' | 'brands' | 'categories' | 'products'
 
 function POSPageContent() {
   const { user } = useAuth()
+  const router = useRouter()
   // Navigation state
   const [viewMode, setViewMode] = useState<ViewMode>('scanner')
   const [selectedBrand, setSelectedBrand] = useState<any>(null)
@@ -417,6 +419,25 @@ function POSPageContent() {
     }
   }
 
+  const handleDeleteDraftOrder = async (orderId: string) => {
+    if (!confirm('Delete this draft order? This action cannot be undone.')) {
+      return
+    }
+
+    try {
+      setLoading(true)
+      setError(null)
+      await api.cancelSale(orderId)
+      alert('✅ Draft order deleted successfully!')
+      loadOrders() // Refresh orders list
+    } catch (err: any) {
+      setError(err.message || 'Failed to delete draft order')
+      alert('Failed to delete draft order: ' + (err.message || 'Unknown error'))
+    } finally {
+      setLoading(false)
+    }
+  }
+
   const cartCount = cartItems.length
   const cartTotal = currentOrder?.totalPrice || 0
 
@@ -741,10 +762,18 @@ function POSPageContent() {
                               >
                                 View
                               </button>
+                              {order.status === 'DRAFT' && user?.role === 'STAFF' && (
+                                <button
+                                  onClick={() => handleDeleteDraftOrder(order.id)}
+                                  className="btn-secondary text-xs px-3 py-1.5 bg-red-50 text-red-700 hover:bg-red-100 border-red-200"
+                                >
+                                  Delete
+                                </button>
+                              )}
                               {order.status === 'CONFIRMED' && user?.role === 'STAFF' && (
                                 <button
                                   onClick={() => handleRequestCancellation(order.id)}
-                                  className="btn-secondary text-xs px-3 py-1.5 bg-red-50 text-red-700 hover:bg-red-100 border-red-200"
+                                  className="btn-secondary text-xs px-3 py-1.5 bg-orange-50 text-orange-700 hover:bg-orange-100 border-orange-200"
                                 >
                                   Request Cancel
                                 </button>
