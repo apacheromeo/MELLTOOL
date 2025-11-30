@@ -20,6 +20,7 @@ interface LowStockProduct {
   urgency: 'out-of-stock' | 'critical' | 'warning' | 'low'
   price: number
   supplier: string
+  imageUrl?: string
 }
 
 export default function LowStockPage() {
@@ -74,7 +75,8 @@ export default function LowStockPage() {
           lastRestocked: product.updatedAt || product.createdAt,
           urgency,
           price: product.sellPrice || 0,
-          supplier: product.brand?.name || 'N/A'
+          supplier: product.brand?.name || 'N/A',
+          imageUrl: product.imageUrl
         }
       })
 
@@ -323,38 +325,54 @@ export default function LowStockPage() {
               <table className="w-full">
                 <thead className="bg-gray-50 border-b border-gray-200">
                   <tr>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Urgency</th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Product</th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Category</th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Current Stock</th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Min Stock</th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Stock Level</th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Supplier</th>
-                    <th className="px-6 py-4 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">Actions</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Status</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Image</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Product</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Category</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Current Stock</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Min Stock</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Stock Level</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Supplier</th>
+                    <th className="px-4 py-3 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
                   {filteredProducts.map((product) => (
                     <tr key={product.id} className="hover:bg-gray-50 transition">
-                      <td className="px-6 py-4">
-                        <div className="flex items-center gap-2">
-                          <span className="text-2xl">{getUrgencyIcon(product.urgency)}</span>
-                          <span className={`badge ${getUrgencyColor(product.urgency)} capitalize`}>
-                            {product.urgency}
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-1">
+                          <span className="text-base">{getUrgencyIcon(product.urgency)}</span>
+                          <span className={`text-xs px-2 py-1 rounded ${getUrgencyColor(product.urgency)} capitalize`}>
+                            {product.urgency === 'out-of-stock' ? 'Out' : product.urgency}
                           </span>
                         </div>
                       </td>
-                      <td className="px-6 py-4">
+                      <td className="px-4 py-3">
+                        <div className="w-12 h-12 rounded-lg bg-gray-100 flex items-center justify-center overflow-hidden">
+                          {product.imageUrl ? (
+                            <img
+                              src={product.imageUrl.startsWith('http') ? product.imageUrl : `https://melltool-backend.fly.dev${product.imageUrl}`}
+                              alt={product.name}
+                              className="w-full h-full object-cover"
+                            />
+                          ) : (
+                            <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                            </svg>
+                          )}
+                        </div>
+                      </td>
+                      <td className="px-4 py-3">
                         <div>
                           <div className="font-semibold text-gray-900">{product.name}</div>
                           <div className="text-sm text-gray-600">{product.nameTh}</div>
                           <div className="text-xs text-gray-500">{product.sku}</div>
                         </div>
                       </td>
-                      <td className="px-6 py-4">
-                        <span className="badge badge-gray">{product.category}</span>
+                      <td className="px-4 py-3">
+                        <span className="text-xs px-2 py-1 rounded bg-gray-100 text-gray-700">{product.category}</span>
                       </td>
-                      <td className="px-6 py-4">
+                      <td className="px-4 py-3">
                         <span className={`text-lg font-bold ${
                           product.urgency === 'out-of-stock' ? 'text-red-700' :
                           product.urgency === 'critical' ? 'text-red-600' :
@@ -364,10 +382,10 @@ export default function LowStockPage() {
                           {product.currentStock}
                         </span>
                       </td>
-                      <td className="px-6 py-4">
+                      <td className="px-4 py-3">
                         <span className="text-sm text-gray-700">{product.minStock}</span>
                       </td>
-                      <td className="px-6 py-4">
+                      <td className="px-4 py-3">
                         <div className="w-full">
                           <div className="flex items-center justify-between mb-1">
                             <span className="text-xs text-gray-600">
@@ -387,20 +405,20 @@ export default function LowStockPage() {
                           </div>
                         </div>
                       </td>
-                      <td className="px-6 py-4">
+                      <td className="px-4 py-3">
                         <span className="text-sm text-gray-700">{product.supplier}</span>
                       </td>
-                      <td className="px-6 py-4">
+                      <td className="px-4 py-3">
                         <div className="flex items-center justify-end gap-2">
                           <button
                             onClick={() => router.push(`/stock-in?product=${product.id}`)}
-                            className="btn-primary text-sm px-4 py-2"
+                            className="btn-primary text-xs px-3 py-1.5"
                           >
                             Restock
                           </button>
                           <button
                             onClick={() => router.push(`/inventory/${product.id}`)}
-                            className="btn-secondary text-sm px-4 py-2"
+                            className="btn-secondary text-xs px-3 py-1.5"
                           >
                             View
                           </button>
