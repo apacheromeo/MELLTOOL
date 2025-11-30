@@ -22,7 +22,7 @@ export class DashboardService {
         activeProducts,
         lowStockCount,
         outOfStockCount,
-        totalValue,
+        inventoryStats,
         totalStockIns,
         pendingStockIns,
         shopeeShops,
@@ -40,9 +40,12 @@ export class DashboardService {
         this.prisma.product.count({
           where: { isActive: true, stockQty: 0 },
         }),
+        // Calculate total quantity and value correctly
         this.prisma.product.aggregate({
           where: { isActive: true },
-          _sum: { costPrice: true },
+          _sum: {
+            stockQty: true,
+          },
         }),
         this.prisma.stockIn.count(),
         this.prisma.stockIn.count({ where: { status: 'PENDING' } }),
@@ -67,13 +70,26 @@ export class DashboardService {
         this.forecastingService.getDashboardInsights(),
       ]);
 
+      // Calculate total inventory value (costPrice * stockQty for each product)
+      const products = await this.prisma.product.findMany({
+        where: { isActive: true },
+        select: {
+          costPrice: true,
+          stockQty: true,
+        },
+      });
+
+      const totalValue = products.reduce((sum, p) => sum + (p.costPrice * p.stockQty), 0);
+      const totalQuantity = inventoryStats._sum.stockQty || 0;
+
       return {
         inventory: {
           totalProducts,
           activeProducts,
           lowStockCount,
           outOfStockCount,
-          totalValue: totalValue._sum.costPrice || 0,
+          totalQuantity,
+          totalValue,
           healthScore: this.calculateHealthScore(
             activeProducts,
             lowStockCount,

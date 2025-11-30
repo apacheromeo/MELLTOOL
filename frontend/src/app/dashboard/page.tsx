@@ -93,7 +93,7 @@ export default function DashboardPage() {
         {!loading && !error && (
           <>
             {/* Stats Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
               <div className="metric-card border-blue-500">
                 <div className="flex items-center justify-between mb-4">
                   <div className="w-12 h-12 rounded-lg bg-blue-100 flex items-center justify-center">
@@ -106,7 +106,22 @@ export default function DashboardPage() {
                   {overview?.inventory?.totalProducts || 0}
                 </div>
                 <div className="text-sm text-gray-600">Total Products</div>
-                <div className="text-xs text-green-600 mt-2">+12% from last month</div>
+                <div className="text-xs text-blue-600 mt-2">Unique SKUs</div>
+              </div>
+
+              <div className="metric-card border-indigo-500">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="w-12 h-12 rounded-lg bg-indigo-100 flex items-center justify-center">
+                    <svg className="w-6 h-6 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+                    </svg>
+                  </div>
+                </div>
+                <div className="text-3xl font-bold text-gray-900 mb-1">
+                  {(overview?.inventory?.totalQuantity || 0).toLocaleString()}
+                </div>
+                <div className="text-sm text-gray-600">Total Stock Qty</div>
+                <div className="text-xs text-indigo-600 mt-2">All units</div>
               </div>
 
               <div className="metric-card border-yellow-500">
@@ -135,8 +150,8 @@ export default function DashboardPage() {
                 <div className="text-3xl font-bold text-gray-900 mb-1">
                   ฿{(overview?.inventory?.totalValue || 0).toLocaleString()}
                 </div>
-                <div className="text-sm text-gray-600">Total Value</div>
-                <div className="text-xs text-green-600 mt-2">+8% from last month</div>
+                <div className="text-sm text-gray-600">Total Inventory Value</div>
+                <div className="text-xs text-green-600 mt-2">Cost × Qty</div>
               </div>
 
               <div className="metric-card border-purple-500">
