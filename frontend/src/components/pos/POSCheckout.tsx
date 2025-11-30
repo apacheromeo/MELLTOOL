@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useAuth } from '@/contexts/AuthContext'
 
 interface POSCheckoutProps {
   order: any
@@ -28,6 +29,7 @@ export default function POSCheckout({
   onBack,
   disabled,
 }: POSCheckoutProps) {
+  const { user } = useAuth()
   const [paymentMethod, setPaymentMethod] = useState('SHOPEE')
   const [customerName, setCustomerName] = useState('')
   const [customerPhone, setCustomerPhone] = useState('')
@@ -86,21 +88,23 @@ export default function POSCheckout({
           </div>
         </div>
 
-        {/* Profit Info */}
-        <div className="bg-blue-50 rounded-2xl p-4 border border-blue-200">
-          <div className="flex justify-between items-center mb-2">
-            <span className="text-sm text-blue-900 font-medium">Cost:</span>
-            <span className="text-sm font-bold text-blue-900">฿{totalCost.toLocaleString()}</span>
+        {/* Profit Info - Only visible to OWNER and MOD */}
+        {(user?.role === 'OWNER' || user?.role === 'MOD') && (
+          <div className="bg-blue-50 rounded-2xl p-4 border border-blue-200">
+            <div className="flex justify-between items-center mb-2">
+              <span className="text-sm text-blue-900 font-medium">Cost:</span>
+              <span className="text-sm font-bold text-blue-900">฿{totalCost.toLocaleString()}</span>
+            </div>
+            <div className="flex justify-between items-center mb-2">
+              <span className="text-sm text-blue-900 font-medium">Profit:</span>
+              <span className="text-sm font-bold text-green-600">฿{profit.toLocaleString()}</span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-sm text-blue-900 font-medium">Margin:</span>
+              <span className="text-sm font-bold text-blue-900">{profitMargin}%</span>
+            </div>
           </div>
-          <div className="flex justify-between items-center mb-2">
-            <span className="text-sm text-blue-900 font-medium">Profit:</span>
-            <span className="text-sm font-bold text-green-600">฿{profit.toLocaleString()}</span>
-          </div>
-          <div className="flex justify-between items-center">
-            <span className="text-sm text-blue-900 font-medium">Margin:</span>
-            <span className="text-sm font-bold text-blue-900">{profitMargin}%</span>
-          </div>
-        </div>
+        )}
 
         {/* Payment Method */}
         <div>
