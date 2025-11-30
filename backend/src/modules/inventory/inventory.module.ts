@@ -8,6 +8,7 @@ import { CategoryService } from './category.service';
 import { BrandService } from './brand.service';
 import { BarcodeService } from './barcode.service';
 import { ProductImportService } from './product-import.service';
+import { StockAdjustmentService } from './stock-adjustment.service';
 import { InventoryRepository } from './repositories/inventory.repository';
 import { ProductRepository } from './repositories/product.repository';
 import { CategoryRepository } from './repositories/category.repository';
@@ -27,6 +28,7 @@ import { BrandRepository } from './repositories/brand.repository';
     BrandService,
     BarcodeService,
     ProductImportService,
+    StockAdjustmentService,
     InventoryRepository,
     ProductRepository,
     CategoryRepository,
