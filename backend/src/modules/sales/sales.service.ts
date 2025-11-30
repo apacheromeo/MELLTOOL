@@ -1841,16 +1841,38 @@ export class SalesService {
       include: {
         order: {
           include: {
-            staff: true,
+            staff: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+              },
+            },
             items: {
-              include: {
-                product: true,
+              select: {
+                id: true,
+                productName: true,
+                quantity: true,
+                unitPrice: true,
+                subtotal: true,
               },
             },
           },
         },
-        requestedBy: true,
-        approvedBy: true,
+        requestedBy: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
+        approvedBy: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
       },
       orderBy: {
         createdAt: 'desc',
