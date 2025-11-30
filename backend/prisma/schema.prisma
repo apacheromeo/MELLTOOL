@@ -35,6 +35,7 @@ model User {
   expenses          Expense[]
   cancellationRequests        CancellationRequest[] @relation("CancellationRequests")
   approvedCancellationRequests CancellationRequest[] @relation("CancellationApprovals")
+  stockAdjustments  StockAdjustment[]
 
   @@index([email])
   @@index([role])
@@ -141,6 +142,7 @@ model Product {
   shopeeItems ShopeeItem[]
   printJobProducts PrintJobProduct[]
   salesItems SalesItem[]
+  stockAdjustments StockAdjustment[]
 
   // Product Compatibility - Products this product is compatible with
   compatibleWith ProductCompatibility[] @relation("ProductCompatibilities")
@@ -250,6 +252,46 @@ model StockInItem {
   product     Product @relation(fields: [productId], references: [id])
 
   @@map("stock_in_items")
+}
+
+// Stock Adjustments (Manual stock corrections)
+model StockAdjustment {
+  id            String   @id @default(cuid())
+  productId     String
+  product       Product  @relation(fields: [productId], references: [id])
+
+  type          StockAdjustmentType
+  reason        StockAdjustmentReason
+  quantity      Int
+  oldStock      Int
+  newStock      Int
+  notes         String?
+
+  adjustedBy    String
+  adjustedUser  User     @relation(fields: [adjustedBy], references: [id])
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([productId])
+  @@index([adjustedBy])
+  @@index([createdAt])
+  @@map("stock_adjustments")
+}
+
+enum StockAdjustmentType {
+  INCREASE
+  DECREASE
+}
+
+enum StockAdjustmentReason {
+  DAMAGED
+  LOST
+  FOUND
+  EXPIRED
+  STOLEN
+  INVENTORY_COUNT
+  OTHER
 }
 
 // Shopee Integration

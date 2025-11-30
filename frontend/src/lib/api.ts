@@ -114,6 +114,46 @@ class ApiClient {
     return this.request('/inventory/analytics/low-stock');
   }
 
+  // Stock Adjustments
+  async createStockAdjustment(data: {
+    productId: string;
+    type: 'INCREASE' | 'DECREASE';
+    reason: 'DAMAGED' | 'LOST' | 'FOUND' | 'EXPIRED' | 'STOLEN' | 'INVENTORY_COUNT' | 'OTHER';
+    quantity: number;
+    notes?: string;
+  }) {
+    return this.request('/inventory/adjustments', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async getStockAdjustments(params?: {
+    productId?: string;
+    type?: 'INCREASE' | 'DECREASE';
+    reason?: string;
+    limit?: number;
+    offset?: number;
+  }) {
+    const queryParams = new URLSearchParams();
+    if (params?.productId) queryParams.append('productId', params.productId);
+    if (params?.type) queryParams.append('type', params.type);
+    if (params?.reason) queryParams.append('reason', params.reason);
+    if (params?.limit) queryParams.append('limit', params.limit.toString());
+    if (params?.offset) queryParams.append('offset', params.offset.toString());
+
+    const query = queryParams.toString();
+    return this.request(`/inventory/adjustments${query ? `?${query}` : ''}`);
+  }
+
+  async getProductAdjustments(productId: string) {
+    return this.request(`/inventory/adjustments/product/${productId}`);
+  }
+
+  async getAdjustmentStats() {
+    return this.request('/inventory/adjustments/stats');
+  }
+
   async createProduct(data: any) {
     return this.request('/inventory/products', {
       method: 'POST',

@@ -26,6 +26,7 @@ import { CategoryService } from './category.service';
 import { BrandService } from './brand.service';
 import { BarcodeService } from './barcode.service';
 import { ProductImportService } from './product-import.service';
+import { StockAdjustmentService } from './stock-adjustment.service';
 import { FileUploadSecurityInterceptor } from '@/common/interceptors/file-upload-security.interceptor';
 
 import { CreateProductDto } from './dto/create-product.dto';
@@ -59,6 +60,7 @@ export class InventoryController {
     private readonly brandService: BrandService,
     private readonly barcodeService: BarcodeService,
     private readonly productImportService: ProductImportService,
+    private readonly stockAdjustmentService: StockAdjustmentService,
   ) {
     this.logger.log('InventoryController initialized');
   }
@@ -429,5 +431,54 @@ export class InventoryController {
   @ApiQuery({ name: 'days', required: false, type: Number })
   async getStockMovements(@Query('days') days: number = 30) {
     return this.inventoryService.getStockMovements(days);
+  }
+
+  // Stock Adjustments
+  @Post('adjustments')
+  @Roles(UserRole.OWNER, UserRole.MOD)
+  @ApiOperation({ summary: 'Create stock adjustment (Owner/Mod only)' })
+  @ApiResponse({ status: 201, description: 'Stock adjustment created successfully' })
+  async createStockAdjustment(
+    @Body() dto: any,
+    @Request() req: any,
+  ) {
+    const userId = req.user.id;
+    this.logger.log(`Creating stock adjustment for product ${dto.productId} by user ${userId}`);
+    return this.stockAdjustmentService.createAdjustment(dto, userId);
+  }
+
+  @Get('adjustments')
+  @ApiOperation({ summary: 'Get stock adjustments history' })
+  @ApiQuery({ name: 'productId', required: false, type: String })
+  @ApiQuery({ name: 'type', required: false, enum: ['INCREASE', 'DECREASE'] })
+  @ApiQuery({ name: 'reason', required: false, type: String })
+  @ApiQuery({ name: 'limit', required: false, type: Number })
+  @ApiQuery({ name: 'offset', required: false, type: Number })
+  async getStockAdjustments(
+    @Query('productId') productId?: string,
+    @Query('type') type?: 'INCREASE' | 'DECREASE',
+    @Query('reason') reason?: string,
+    @Query('limit') limit?: number,
+    @Query('offset') offset?: number,
+  ) {
+    return this.stockAdjustmentService.getAdjustments({
+      productId,
+      type,
+      reason,
+      limit: limit ? Number(limit) : 50,
+      offset: offset ? Number(offset) : 0,
+    });
+  }
+
+  @Get('adjustments/product/:productId')
+  @ApiOperation({ summary: 'Get stock adjustments for a specific product' })
+  async getProductAdjustments(@Param('productId') productId: string) {
+    return this.stockAdjustmentService.getAdjustmentsByProduct(productId);
+  }
+
+  @Get('adjustments/stats')
+  @ApiOperation({ summary: 'Get stock adjustment statistics' })
+  async getAdjustmentStats() {
+    return this.stockAdjustmentService.getAdjustmentStats();
   }
 }
