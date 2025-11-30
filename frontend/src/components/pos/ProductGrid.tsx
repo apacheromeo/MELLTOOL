@@ -126,8 +126,17 @@ export default function ProductGrid({
       {!loading && filteredProducts.length > 0 && (
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
           {filteredProducts.map((product) => {
-            const inStock = product.stockQty > 0
-            const lowStock = product.stockQty <= product.minStock
+            // For variants, use master's stock; otherwise use product's own stock
+            const actualStock = product.masterProductId && product.masterProduct
+              ? product.masterProduct.stockQty
+              : product.stockQty
+
+            const actualMinStock = product.masterProductId && product.masterProduct
+              ? product.masterProduct.minStock
+              : product.minStock
+
+            const inStock = actualStock > 0
+            const lowStock = actualStock <= actualMinStock
 
             return (
               <button
@@ -194,7 +203,7 @@ export default function ProductGrid({
                           : 'bg-green-100 text-green-700'
                       }`}
                     >
-                      {!inStock ? 'Out of Stock' : `Stock: ${product.stockQty}`}
+                      {!inStock ? 'Out of Stock' : `Stock: ${actualStock}`}
                     </span>
                   </div>
                 </div>
