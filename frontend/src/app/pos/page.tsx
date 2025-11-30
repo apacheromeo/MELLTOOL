@@ -12,7 +12,7 @@ import ProductGrid from '@/components/pos/ProductGrid'
 import POSCart from '@/components/pos/POSCart'
 import POSCheckout from '@/components/pos/POSCheckout'
 
-type ViewMode = 'scanner' | 'fulfillment' | 'brands' | 'categories' | 'products' | 'cart'
+type ViewMode = 'scanner' | 'fulfillment' | 'brands' | 'categories' | 'products' | 'cart' | 'orders'
 
 function POSPageContent() {
   const { user } = useAuth()
@@ -31,6 +31,7 @@ function POSPageContent() {
   const [cartItems, setCartItems] = useState<any[]>([])
   const [existingOrder, setExistingOrder] = useState<any>(null)
   const [scannedItems, setScannedItems] = useState<Record<string, number>>({})
+  const [ordersList, setOrdersList] = useState<any[]>([])
 
   // Search state - NEW!
   const [searchQuery, setSearchQuery] = useState('')
@@ -96,6 +97,19 @@ function POSPageContent() {
     } catch (err) {
       console.error('Failed to load products:', err)
       setError('Failed to load products')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const loadOrders = async () => {
+    try {
+      setLoading(true)
+      const data = await api.getSalesOrders({ limit: 50 })
+      setOrdersList(data.orders || [])
+    } catch (err) {
+      console.error('Failed to load orders:', err)
+      setError('Failed to load orders')
     } finally {
       setLoading(false)
     }
@@ -297,6 +311,8 @@ function POSPageContent() {
       setExistingOrder(null)
       setScannedItems({})
       setViewMode('scanner')
+    } else if (viewMode === 'orders') {
+      setViewMode('scanner')
     } else if (viewMode === 'products') {
       setViewMode('categories')
       setSelectedCategory(null)
@@ -368,6 +384,27 @@ function POSPageContent() {
     }
   }
 
+  const handleRequestCancellation = async (orderId: string) => {
+    const reason = prompt('Please provide a reason for cancellation:')
+    if (!reason || !reason.trim()) {
+      alert('Cancellation reason is required')
+      return
+    }
+
+    try {
+      setLoading(true)
+      setError(null)
+      await api.requestCancellation(orderId, reason.trim())
+      alert('✅ Cancellation request submitted successfully! Waiting for owner approval.')
+      loadOrders() // Refresh orders list
+    } catch (err: any) {
+      setError(err.message || 'Failed to request cancellation')
+      alert('Failed to request cancellation: ' + (err.message || 'Unknown error'))
+    } finally {
+      setLoading(false)
+    }
+  }
+
   const cartCount = cartItems.length
   const cartTotal = currentOrder?.totalPrice || 0
 
@@ -397,6 +434,22 @@ function POSPageContent() {
             </div>
 
             <div className="flex items-center gap-3">
+              {/* View Orders Button */}
+              {viewMode === 'scanner' && (
+                <button
+                  onClick={() => {
+                    loadOrders()
+                    setViewMode('orders')
+                  }}
+                  className="px-6 py-3 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-medium transition-all active:scale-95 shadow-lg flex items-center gap-2"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                  </svg>
+                  View Orders
+                </button>
+              )}
+
               {/* Cart Button */}
               {currentOrder && (
                 <button
@@ -592,6 +645,106 @@ function POSPageContent() {
                 onBack={() => setViewMode('brands')}
                 disabled={loading}
               />
+            </div>
+          </div>
+        )}
+
+        {viewMode === 'orders' && (
+          <div className="max-w-6xl mx-auto">
+            <div className="bg-white rounded-2xl shadow-xl border border-gray-200 overflow-hidden">
+              <div className="bg-gradient-to-r from-purple-600 to-indigo-600 px-8 py-6">
+                <h2 className="text-2xl font-bold text-white">Orders List</h2>
+                <p className="text-purple-100">View and manage sales orders</p>
+              </div>
+
+              {loading ? (
+                <div className="p-12 text-center">
+                  <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600"></div>
+                  <p className="text-gray-600 mt-4">Loading orders...</p>
+                </div>
+              ) : ordersList.length === 0 ? (
+                <div className="p-12 text-center">
+                  <div className="w-20 h-20 rounded-full bg-gray-100 flex items-center justify-center mx-auto mb-4">
+                    <svg className="w-10 h-10 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                    </svg>
+                  </div>
+                  <h3 className="text-xl font-semibold text-gray-900 mb-2">No Orders Found</h3>
+                  <p className="text-gray-600">There are no orders to display</p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead className="bg-gray-50 border-b border-gray-200">
+                      <tr>
+                        <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase">Order #</th>
+                        <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase">Date</th>
+                        <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase">Items</th>
+                        <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase">Total</th>
+                        <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase">Payment</th>
+                        <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase">Status</th>
+                        <th className="px-6 py-4 text-right text-xs font-semibold text-gray-600 uppercase">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-200">
+                      {ordersList.map((order) => (
+                        <tr key={order.id} className="hover:bg-gray-50 transition">
+                          <td className="px-6 py-4">
+                            <span className="font-mono font-semibold text-gray-900">{order.orderNumber}</span>
+                          </td>
+                          <td className="px-6 py-4">
+                            <span className="text-sm text-gray-700">
+                              {new Date(order.createdAt).toLocaleDateString('en-US', {
+                                month: 'short',
+                                day: 'numeric',
+                                year: 'numeric',
+                                hour: '2-digit',
+                                minute: '2-digit'
+                              })}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4">
+                            <span className="text-sm text-gray-700">{order.items?.length || 0} items</span>
+                          </td>
+                          <td className="px-6 py-4">
+                            <span className="font-bold text-gray-900">฿{order.totalPrice?.toLocaleString()}</span>
+                          </td>
+                          <td className="px-6 py-4">
+                            <span className="text-xs px-2 py-1 rounded bg-gray-100 text-gray-700">{order.paymentMethod || 'N/A'}</span>
+                          </td>
+                          <td className="px-6 py-4">
+                            <span className={`text-xs px-3 py-1 rounded-full font-medium ${
+                              order.status === 'CONFIRMED' ? 'bg-green-100 text-green-700' :
+                              order.status === 'CANCELLED' ? 'bg-red-100 text-red-700' :
+                              'bg-yellow-100 text-yellow-700'
+                            }`}>
+                              {order.status}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4">
+                            <div className="flex items-center justify-end gap-2">
+                              <button
+                                onClick={() => router.push(`/sales/${order.id}`)}
+                                className="btn-secondary text-xs px-3 py-1.5"
+                              >
+                                View
+                              </button>
+                              {order.status === 'CONFIRMED' && user?.role === 'STAFF' && (
+                                <button
+                                  onClick={() => handleRequestCancellation(order.id)}
+                                  className="btn-secondary text-xs px-3 py-1.5 bg-red-50 text-red-700 hover:bg-red-100 border-red-200"
+                                >
+                                  Request Cancel
+                                </button>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </div>
           </div>
         )}
