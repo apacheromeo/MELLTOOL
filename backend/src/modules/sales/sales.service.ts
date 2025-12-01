@@ -37,6 +37,7 @@ export class SalesService {
   /**
    * Start a new sales order (draft)
    * Creates an empty order that staff can add items to
+   * If a cancelled order exists with the same order number, reuse it
    */
   async startSale(staffId: string, dto: CreateSalesOrderDto) {
     this.logger.log(`Starting new sale for staff: ${staffId}`);
@@ -45,6 +46,66 @@ export class SalesService {
     const orderNumber =
       dto.orderNumber || this.generateOrderNumber();
 
+    // Check if an order with this number already exists
+    if (dto.orderNumber) {
+      const existingOrder = await this.prisma.salesOrder.findUnique({
+        where: { orderNumber: dto.orderNumber },
+      });
+
+      // If a CANCELLED order exists with this number, reuse it by resetting to DRAFT
+      if (existingOrder && existingOrder.status === 'CANCELLED') {
+        this.logger.log(
+          `Reusing cancelled order ${existingOrder.id} with number ${orderNumber}`,
+        );
+
+        // Delete existing items and reset the order to DRAFT
+        await this.prisma.salesOrderItem.deleteMany({
+          where: { orderId: existingOrder.id },
+        });
+
+        const order = await this.prisma.salesOrder.update({
+          where: { id: existingOrder.id },
+          data: {
+            staffId,
+            paymentMethod: dto.paymentMethod,
+            customerName: dto.customerName,
+            customerPhone: dto.customerPhone,
+            notes: dto.notes,
+            channel: dto.channel || 'POS',
+            status: 'DRAFT',
+            totalCost: 0,
+            totalPrice: 0,
+            profit: 0,
+          },
+          include: {
+            staff: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+              },
+            },
+            items: {
+              include: {
+                product: true,
+              },
+            },
+          },
+        });
+
+        this.logger.log(`Reused sales order: ${order.id}`);
+        return order;
+      }
+
+      // If a non-cancelled order exists, throw an error
+      if (existingOrder) {
+        throw new BadRequestException(
+          `Order number ${orderNumber} already exists with status ${existingOrder.status}`,
+        );
+      }
+    }
+
+    // Create new order
     const order = await this.prisma.salesOrder.create({
       data: {
         orderNumber,
