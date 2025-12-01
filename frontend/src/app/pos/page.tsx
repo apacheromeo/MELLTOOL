@@ -197,6 +197,12 @@ function POSPageContent() {
         try {
           const existingOrder = await api.getSalesOrderByNumber(orderData.orderNumber)
 
+          // If this is already the current order being worked on, don't redirect
+          if (currentOrder && currentOrder.id === existingOrder.id) {
+            alert('This order is already loaded in your cart')
+            return
+          }
+
           // Check order status
           if (existingOrder.status === 'DRAFT') {
             // For DRAFT orders, load as current order so staff can continue adding items
