@@ -52,14 +52,14 @@ export class SalesService {
         where: { orderNumber: dto.orderNumber },
       });
 
-      // If a CANCELLED order exists with this number, reuse it by resetting to DRAFT
-      if (existingOrder && existingOrder.status === 'CANCELLED') {
+      // If a CANCELED order exists with this number, reuse it by resetting to DRAFT
+      if (existingOrder && existingOrder.status === 'CANCELED') {
         this.logger.log(
-          `Reusing cancelled order ${existingOrder.id} with number ${orderNumber}`,
+          `Reusing canceled order ${existingOrder.id} with number ${orderNumber}`,
         );
 
         // Delete existing items and reset the order to DRAFT
-        await this.prisma.salesOrderItem.deleteMany({
+        await this.prisma.salesItem.deleteMany({
           where: { orderId: existingOrder.id },
         });
 

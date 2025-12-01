@@ -215,9 +215,9 @@ function POSPageContent() {
             // For CONFIRMED orders, just show an alert - order is already completed
             alert(`Order #${existingOrder.orderNumber} is already confirmed and completed. Total: ฿${existingOrder.totalPrice?.toLocaleString()}`)
             return
-          } else if (existingOrder.status === 'CANCELLED') {
-            // For CANCELLED orders, allow creating a new order with the same order number
-            console.log(`Order ${existingOrder.orderNumber} was cancelled, creating new order with same number`)
+          } else if (existingOrder.status === 'CANCELED') {
+            // For CANCELED orders, allow creating a new order with the same order number
+            console.log(`Order ${existingOrder.orderNumber} was canceled, creating new order with same number`)
             // Fall through to create new order below
           }
         } catch (fetchErr: any) {
@@ -772,7 +772,7 @@ function POSPageContent() {
                           <td className="px-6 py-4">
                             <span className={`text-xs px-3 py-1 rounded-full font-medium ${
                               order.status === 'CONFIRMED' ? 'bg-green-100 text-green-700' :
-                              order.status === 'CANCELLED' ? 'bg-red-100 text-red-700' :
+                              order.status === 'CANCELED' ? 'bg-red-100 text-red-700' :
                               'bg-yellow-100 text-yellow-700'
                             }`}>
                               {order.status}
