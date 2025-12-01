@@ -17,9 +17,25 @@ export class StockInService {
     const { reference, supplier, notes, items } = createStockInDto;
 
     try {
+      // Get user role to determine if auto-approval is needed
+      const user = await this.prisma.user.findUnique({
+        where: { id: userId },
+        select: { role: true },
+      });
+
+      if (!user) {
+        throw new BadRequestException('User not found');
+      }
+
       // Calculate totals
       const totalQty = items.reduce((sum, item) => sum + item.qty, 0);
       const totalCost = items.reduce((sum, item) => sum + (item.qty * item.unitCost), 0);
+
+      // OWNER users auto-approve their own stock-ins
+      const isOwner = user.role === 'OWNER';
+      const approvalStatus = isOwner ? 'APPROVED' : 'PENDING_APPROVAL';
+      const approvedBy = isOwner ? userId : null;
+      const approvedAt = isOwner ? new Date() : null;
 
       // Create stock-in with items
       const stockIn = await this.prisma.stockIn.create({
@@ -30,6 +46,9 @@ export class StockInService {
           totalQty,
           totalCost,
           userId,
+          approvalStatus,
+          approvedBy,
+          approvedAt,
           items: {
             create: items.map(item => ({
               productId: item.productId,
@@ -40,7 +59,8 @@ export class StockInService {
           },
         },
         include: {
-          user: { select: { name: true, email: true } },
+          user: { select: { name: true, email: true, role: true } },
+          approver: { select: { name: true, email: true } },
           items: {
             include: {
               product: {
@@ -57,7 +77,10 @@ export class StockInService {
         },
       });
 
-      this.logger.log(`Stock-in created: ${stockIn.reference} with ${items.length} items`);
+      this.logger.log(
+        `Stock-in created: ${stockIn.reference} with ${items.length} items by ${user.role} user. ` +
+        `Approval status: ${approvalStatus}`
+      );
 
       return stockIn;
     } catch (error) {
