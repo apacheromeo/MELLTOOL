@@ -107,6 +107,14 @@ export class SalesService {
           { barcode: dto.sku },
         ],
       },
+      include: {
+        masterProduct: {
+          select: {
+            id: true,
+            stockQty: true,
+          },
+        },
+      },
     });
 
     if (!product) {
@@ -115,10 +123,15 @@ export class SalesService {
       );
     }
 
+    // For variants, use master product's stock; otherwise use product's own stock
+    const actualStock = product.masterProductId && product.masterProduct
+      ? product.masterProduct.stockQty
+      : product.stockQty;
+
     // Check if sufficient stock is available
-    if (product.stockQty < dto.quantity) {
+    if (actualStock < dto.quantity) {
       throw new BadRequestException(
-        `Insufficient stock. Available: ${product.stockQty}, Requested: ${dto.quantity}`,
+        `Insufficient stock. Available: ${actualStock}, Requested: ${dto.quantity}`,
       );
     }
 
@@ -132,11 +145,11 @@ export class SalesService {
     if (existingItem) {
       // Update existing item quantity
       const newQuantity = existingItem.quantity + dto.quantity;
-      
+
       // Check stock again for new total
-      if (product.stockQty < newQuantity) {
+      if (actualStock < newQuantity) {
         throw new BadRequestException(
-          `Insufficient stock for total quantity. Available: ${product.stockQty}, Requested: ${newQuantity}`,
+          `Insufficient stock for total quantity. Available: ${actualStock}, Requested: ${newQuantity}`,
         );
       }
 
@@ -274,7 +287,16 @@ export class SalesService {
       where: { id: dto.itemId },
       include: {
         order: true,
-        product: true,
+        product: {
+          include: {
+            masterProduct: {
+              select: {
+                id: true,
+                stockQty: true,
+              },
+            },
+          },
+        },
       },
     });
 
@@ -288,11 +310,16 @@ export class SalesService {
       );
     }
 
+    // For variants, use master product's stock; otherwise use product's own stock
+    const actualStock = item.product.masterProductId && item.product.masterProduct
+      ? item.product.masterProduct.stockQty
+      : item.product.stockQty;
+
     // Check stock if quantity is being updated
     if (dto.quantity && dto.quantity !== item.quantity) {
-      if (item.product.stockQty < dto.quantity) {
+      if (actualStock < dto.quantity) {
         throw new BadRequestException(
-          `Insufficient stock. Available: ${item.product.stockQty}`,
+          `Insufficient stock. Available: ${actualStock}`,
         );
       }
     }
@@ -366,7 +393,16 @@ export class SalesService {
       include: {
         items: {
           include: {
-            product: true,
+            product: {
+              include: {
+                masterProduct: {
+                  select: {
+                    id: true,
+                    stockQty: true,
+                  },
+                },
+              },
+            },
           },
         },
       },
@@ -386,9 +422,14 @@ export class SalesService {
 
     // Verify stock availability for all items
     for (const item of order.items) {
-      if (item.product.stockQty < item.quantity) {
+      // For variants, use master product's stock; otherwise use product's own stock
+      const actualStock = item.product.masterProductId && item.product.masterProduct
+        ? item.product.masterProduct.stockQty
+        : item.product.stockQty;
+
+      if (actualStock < item.quantity) {
         throw new BadRequestException(
-          `Insufficient stock for ${item.productName}. Available: ${item.product.stockQty}, Required: ${item.quantity}`,
+          `Insufficient stock for ${item.productName}. Available: ${actualStock}, Required: ${item.quantity}`,
         );
       }
     }
@@ -397,8 +438,11 @@ export class SalesService {
     const result = await this.prisma.$transaction(async (tx) => {
       // Cut stock for each item
       for (const item of order.items) {
+        // For variants, decrement master product's stock; otherwise decrement product's own stock
+        const productIdToUpdate = item.product.masterProductId || item.productId;
+
         await tx.product.update({
-          where: { id: item.productId },
+          where: { id: productIdToUpdate },
           data: {
             stockQty: {
               decrement: item.quantity,
@@ -407,7 +451,9 @@ export class SalesService {
         });
 
         this.logger.log(
-          `Cut stock for ${item.productName}: -${item.quantity} units`,
+          `Cut stock for ${item.productName}: -${item.quantity} units${
+            item.product.masterProductId ? ' (from master product)' : ''
+          }`,
         );
       }
 
