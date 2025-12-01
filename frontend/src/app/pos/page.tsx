@@ -205,23 +205,24 @@ function POSPageContent() {
 
           // Check order status
           if (existingOrder.status === 'DRAFT') {
-            // For DRAFT orders, load as current order so staff can continue adding items
+            // For DRAFT orders, load as current order so staff can continue adding items and complete it
             setCurrentOrder(existingOrder)
             setExistingOrder(null)
             setScannedItems({})
             setViewMode('brands')
+          } else if (existingOrder.status === 'CONFIRMED') {
+            // For CONFIRMED orders, just show an alert - order is already completed
+            alert(`Order #${existingOrder.orderNumber} is already confirmed and completed. Total: ฿${existingOrder.totalPrice?.toLocaleString()}`)
           } else {
-            // For CONFIRMED/other orders, go to fulfillment mode
-            setExistingOrder(existingOrder)
-            setCurrentOrder(null)
-            setScannedItems({})
-            setViewMode('fulfillment')
+            // For other statuses (CANCELLED, etc.), show an alert
+            alert(`Order #${existingOrder.orderNumber} has status: ${existingOrder.status}`)
           }
           return
         } catch (fetchErr: any) {
           console.log('Order not found, creating new:', fetchErr.message)
         }
 
+        // If order doesn't exist, create a new DRAFT order with this order number
         const order = await api.startSale({ orderNumber: orderData.orderNumber })
         setCurrentOrder(order)
         setViewMode('brands')
