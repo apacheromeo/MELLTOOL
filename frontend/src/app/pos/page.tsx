@@ -210,14 +210,16 @@ function POSPageContent() {
             setExistingOrder(null)
             setScannedItems({})
             setViewMode('brands')
+            return
           } else if (existingOrder.status === 'CONFIRMED') {
             // For CONFIRMED orders, just show an alert - order is already completed
             alert(`Order #${existingOrder.orderNumber} is already confirmed and completed. Total: ฿${existingOrder.totalPrice?.toLocaleString()}`)
-          } else {
-            // For other statuses (CANCELLED, etc.), show an alert
-            alert(`Order #${existingOrder.orderNumber} has status: ${existingOrder.status}`)
+            return
+          } else if (existingOrder.status === 'CANCELLED') {
+            // For CANCELLED orders, allow creating a new order with the same order number
+            console.log(`Order ${existingOrder.orderNumber} was cancelled, creating new order with same number`)
+            // Fall through to create new order below
           }
-          return
         } catch (fetchErr: any) {
           console.log('Order not found, creating new:', fetchErr.message)
         }
