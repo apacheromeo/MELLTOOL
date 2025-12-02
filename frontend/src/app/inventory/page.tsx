@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { api } from '@/lib/api'
 import Sidebar from '@/components/Sidebar'
 import { useAuth } from '@/contexts/AuthContext'
@@ -11,6 +11,7 @@ import MasterVariantManagementModal from '@/components/MasterVariantManagementMo
 
 export default function InventoryPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const { user } = useAuth()
   const { hasAccess } = useRoleGuard(['OWNER', 'MOD'])
   const [products, setProducts] = useState<any[]>([])
@@ -19,6 +20,8 @@ export default function InventoryPage() {
   const [search, setSearch] = useState('')
   const [page, setPage] = useState(1)
   const [pagination, setPagination] = useState<any>(null)
+  const [categoryFilter, setCategoryFilter] = useState<string | null>(null)
+  const [brandFilter, setBrandFilter] = useState<string | null>(null)
   const [showModal, setShowModal] = useState(false)
   const [editingProduct, setEditingProduct] = useState<any>(null)
   const [formData, setFormData] = useState({
@@ -50,9 +53,17 @@ export default function InventoryPage() {
   const [showMasterVariantModal, setShowMasterVariantModal] = useState(false)
 
   useEffect(() => {
+    // Read filters from URL on mount
+    const categoryId = searchParams.get('category')
+    const brandId = searchParams.get('brand')
+    if (categoryId) setCategoryFilter(categoryId)
+    if (brandId) setBrandFilter(brandId)
+  }, [searchParams])
+
+  useEffect(() => {
     loadProducts()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page, search])
+  }, [page, search, categoryFilter, brandFilter])
 
   useEffect(() => {
     loadCategoriesAndBrands()
@@ -75,7 +86,13 @@ export default function InventoryPage() {
     try {
       setLoading(true)
       setError(null)
-      const data = await api.getProducts({ page, limit: 21, search })
+      const data = await api.getProducts({
+        page,
+        limit: 21,
+        search,
+        category: categoryFilter || undefined,
+        brand: brandFilter || undefined
+      })
 
       // Debug: Log products with masterProductId to see API response
       const variantProducts = (data.products || []).filter((p: any) => p.masterProductId)
@@ -406,6 +423,58 @@ export default function InventoryPage() {
             )}
           </div>
         </div>
+
+        {/* Active Filters */}
+        {(categoryFilter || brandFilter) && (
+          <div className="mb-6 flex flex-wrap items-center gap-2">
+            <span className="text-sm text-gray-600">Active Filters:</span>
+            {categoryFilter && (
+              <span className="inline-flex items-center gap-2 px-3 py-1.5 bg-blue-100 text-blue-800 rounded-lg text-sm font-medium">
+                Category: {categories.find(c => c.id === categoryFilter)?.name || 'Unknown'}
+                <button
+                  onClick={() => {
+                    setCategoryFilter(null)
+                    setPage(1)
+                    router.push('/inventory')
+                  }}
+                  className="hover:text-blue-900"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </span>
+            )}
+            {brandFilter && (
+              <span className="inline-flex items-center gap-2 px-3 py-1.5 bg-purple-100 text-purple-800 rounded-lg text-sm font-medium">
+                Brand: {brands.find(b => b.id === brandFilter)?.name || 'Unknown'}
+                <button
+                  onClick={() => {
+                    setBrandFilter(null)
+                    setPage(1)
+                    router.push('/inventory')
+                  }}
+                  className="hover:text-purple-900"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </span>
+            )}
+            <button
+              onClick={() => {
+                setCategoryFilter(null)
+                setBrandFilter(null)
+                setPage(1)
+                router.push('/inventory')
+              }}
+              className="text-sm text-gray-600 hover:text-gray-900 underline"
+            >
+              Clear all
+            </button>
+          </div>
+        )}
 
         {/* Error State */}
         {error && (

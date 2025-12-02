@@ -101,7 +101,7 @@ class ApiClient {
   }
 
   // Inventory endpoints
-  async getProducts(params?: { page?: number; limit?: number; search?: string }) {
+  async getProducts(params?: { page?: number; limit?: number; search?: string; category?: string; brand?: string }) {
     const query = new URLSearchParams(params as any).toString();
     return this.request(`/inventory/products?${query}`);
   }
