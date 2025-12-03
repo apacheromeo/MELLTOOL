@@ -288,7 +288,11 @@ export default function BrandsPage() {
                 </thead>
                 <tbody className="divide-y divide-gray-200">
                   {filteredBrands.map((brand) => (
-                    <tr key={brand.id} className="hover:bg-gray-50 transition">
+                    <tr
+                      key={brand.id}
+                      className="hover:bg-blue-50 transition cursor-pointer group"
+                      onClick={() => router.push(`/inventory?brand=${brand.id}`)}
+                    >
                       <td className="px-4 md:px-6 py-3 md:py-4">
                         <div className="flex items-center gap-2 md:gap-3">
                           <div className="w-10 h-10 flex-shrink-0 rounded-lg bg-blue-100 flex items-center justify-center text-xl overflow-hidden">
@@ -299,7 +303,7 @@ export default function BrandsPage() {
                             )}
                           </div>
                           <div className="min-w-0">
-                            <div className="font-semibold text-gray-900 truncate">{brand.name}</div>
+                            <div className="font-semibold text-gray-900 truncate group-hover:text-blue-600 transition">{brand.name}</div>
                             {brand.nameTh && (
                               <div className="text-sm text-gray-600 truncate">{brand.nameTh}</div>
                             )}
@@ -307,7 +311,7 @@ export default function BrandsPage() {
                         </div>
                       </td>
                       <td className="px-4 md:px-6 py-3 md:py-4">
-                        <span className="badge badge-blue text-xs md:text-sm">{getProductCount(brand)} items</span>
+                        <span className="badge badge-blue text-xs md:text-sm group-hover:underline">{getProductCount(brand)} items →</span>
                       </td>
                       <td className="px-4 md:px-6 py-3 md:py-4 hidden sm:table-cell">
                         <span className="text-sm text-gray-600">{formatDate(brand.createdAt)}</span>
@@ -315,8 +319,11 @@ export default function BrandsPage() {
                       <td className="px-4 md:px-6 py-3 md:py-4">
                         <div className="flex items-center justify-end gap-1 md:gap-2">
                           <button
-                            onClick={() => handleEdit(brand)}
-                            className="p-2 md:p-2.5 hover:bg-blue-50 rounded-lg transition touch-manipulation"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleEdit(brand)
+                            }}
+                            className="p-2 md:p-2.5 hover:bg-blue-50 rounded-lg transition touch-manipulation relative z-10"
                             title="Edit"
                             aria-label="Edit brand"
                           >
@@ -325,8 +332,11 @@ export default function BrandsPage() {
                             </svg>
                           </button>
                           <button
-                            onClick={() => handleDelete(brand.id)}
-                            className="p-2 md:p-2.5 hover:bg-red-50 rounded-lg transition touch-manipulation"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleDelete(brand.id)
+                            }}
+                            className="p-2 md:p-2.5 hover:bg-red-50 rounded-lg transition touch-manipulation relative z-10"
                             title="Delete"
                             aria-label="Delete brand"
                           >
