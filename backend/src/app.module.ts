@@ -3,11 +3,13 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { ScheduleModule } from '@nestjs/schedule';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { BullModule } from '@nestjs/bull';
+import { APP_INTERCEPTOR } from '@nestjs/core';
 
 import { PrismaModule } from './common/prisma/prisma.module';
 import { RedisModule } from './common/redis/redis.module';
 import { LoggerModule } from './common/logger/logger.module';
 import { SanitizeMiddleware } from './common/middleware/sanitize.middleware';
+import { RLSInterceptor } from './common/interceptors/rls.interceptor';
 
 // Feature modules
 import { AuthModule } from './modules/auth/auth.module';
@@ -101,6 +103,12 @@ import { HealthController } from './health.controller';
     NotificationsModule,
   ],
   controllers: [HealthController],
+  providers: [
+    {
+      provide: APP_INTERCEPTOR,
+      useClass: RLSInterceptor,
+    },
+  ],
 })
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {

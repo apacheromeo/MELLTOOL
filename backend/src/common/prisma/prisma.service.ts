@@ -71,4 +71,23 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
       await app.close();
     });
   }
+
+  /**
+   * Set RLS (Row Level Security) context for the current database session
+   * This must be called before any query to enforce RLS policies
+   * @param userId - The current user's ID
+   * @param userRole - The current user's role (OWNER, MOD, STAFF)
+   */
+  async setRLSContext(userId: string, userRole: string) {
+    await this.$executeRaw`SELECT set_config('app.user_id', ${userId}, true)`;
+    await this.$executeRaw`SELECT set_config('app.user_role', ${userRole}, true)`;
+  }
+
+  /**
+   * Clear RLS context (useful for cleanup)
+   */
+  async clearRLSContext() {
+    await this.$executeRaw`SELECT set_config('app.user_id', '', true)`;
+    await this.$executeRaw`SELECT set_config('app.user_role', '', true)`;
+  }
 }
