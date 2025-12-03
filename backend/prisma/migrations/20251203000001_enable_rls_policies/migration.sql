@@ -56,18 +56,18 @@ GRANT EXECUTE ON FUNCTION get_current_user_id() TO PUBLIC;
 -- ============================================
 -- HELPER FUNCTION TO SAFELY ENABLE RLS
 -- ============================================
-CREATE OR REPLACE FUNCTION enable_rls_if_exists(table_name TEXT)
+CREATE OR REPLACE FUNCTION enable_rls_if_exists(p_table_name TEXT)
 RETURNS VOID AS $$
 BEGIN
   IF EXISTS (
-    SELECT FROM information_schema.tables
-    WHERE table_schema = 'public'
-    AND table_name = enable_rls_if_exists.table_name
+    SELECT 1 FROM information_schema.tables t
+    WHERE t.table_schema = 'public'
+    AND t.table_name = p_table_name
   ) THEN
-    EXECUTE format('ALTER TABLE %I ENABLE ROW LEVEL SECURITY', table_name);
-    RAISE NOTICE 'RLS enabled for table: %', table_name;
+    EXECUTE format('ALTER TABLE %I ENABLE ROW LEVEL SECURITY', p_table_name);
+    RAISE NOTICE 'RLS enabled for table: %', p_table_name;
   ELSE
-    RAISE NOTICE 'Table does not exist, skipping: %', table_name;
+    RAISE NOTICE 'Table does not exist, skipping: %', p_table_name;
   END IF;
 END;
 $$ LANGUAGE plpgsql;
