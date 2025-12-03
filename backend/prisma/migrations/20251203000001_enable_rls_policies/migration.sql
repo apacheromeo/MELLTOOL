@@ -10,6 +10,29 @@
 -- - STAFF: Limited operational access, no sensitive data
 -- ============================================
 
+-- ============================================
+-- RESOLVE FAILED MIGRATION STATE
+-- ============================================
+-- Clean up any failed migration records first
+DO $$
+BEGIN
+  -- Delete the failed migration record if it exists
+  DELETE FROM "_prisma_migrations"
+  WHERE migration_name = '20251203_enable_rls_policies'
+  AND finished_at IS NOT NULL;
+
+  RAISE NOTICE 'Cleaned up any failed migration state';
+EXCEPTION
+  WHEN undefined_table THEN
+    RAISE NOTICE 'Prisma migrations table not found, skipping cleanup';
+  WHEN OTHERS THEN
+    RAISE NOTICE 'Could not clean up failed migration: %', SQLERRM;
+END $$;
+
+-- ============================================
+-- RLS HELPER FUNCTIONS
+-- ============================================
+
 -- Create a helper function to get current user's role
 CREATE OR REPLACE FUNCTION get_user_role()
 RETURNS TEXT AS $$
