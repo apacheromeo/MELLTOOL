@@ -128,14 +128,24 @@ export class ProductService {
 
     const where: any = {
       isActive: true,
+      // Filter out invisible master products at the database level
+      OR: [
+        { isMaster: false }, // Not a master product
+        { isMaster: true, isVisible: true }, // Master product that is visible
+      ],
     };
 
     if (search) {
-      where.OR = [
-        { name: { contains: search, mode: 'insensitive' } },
-        { nameTh: { contains: search, mode: 'insensitive' } },
-        { sku: { contains: search, mode: 'insensitive' } },
-        { barcode: { contains: search, mode: 'insensitive' } },
+      // Move OR condition to AND since we already have an OR for visibility
+      where.AND = [
+        {
+          OR: [
+            { name: { contains: search, mode: 'insensitive' } },
+            { nameTh: { contains: search, mode: 'insensitive' } },
+            { sku: { contains: search, mode: 'insensitive' } },
+            { barcode: { contains: search, mode: 'insensitive' } },
+          ],
+        },
       ];
     }
 
@@ -155,10 +165,7 @@ export class ProductService {
     if (lowStock) {
       // Use raw SQL for field comparison
       const allProducts = await this.prisma.product.findMany({
-        where: {
-          ...where,
-          isActive: true,
-        },
+        where,
         include: {
           brand: { select: { name: true } },
           category: { select: { name: true } },
@@ -183,17 +190,8 @@ export class ProductService {
         orderBy: { [sortBy]: sortOrder },
       });
 
-      // Filter: hide master products that are marked as not visible
-      const visibleProducts = allProducts.filter(p => {
-        // Hide master products that are not visible
-        if (p.isMaster && !p.isVisible) {
-          return false;
-        }
-        return true;
-      });
-
-      // Filter in memory for field comparison
-      const filteredProducts = visibleProducts.filter(p => {
+      // Filter in memory for field comparison (low stock)
+      const filteredProducts = allProducts.filter(p => {
         // For variants, use master's stock
         const actualStock = p.masterProductId && p.masterProduct
           ? p.masterProduct.stockQty
@@ -206,7 +204,7 @@ export class ProductService {
       total = filteredProducts.length;
       products = filteredProducts.slice(skip, skip + limit);
     } else {
-      const allProducts = await this.prisma.product.findMany({
+      products = await this.prisma.product.findMany({
         where,
         include: {
           brand: { select: { name: true } },
@@ -234,31 +232,10 @@ export class ProductService {
         take: limit,
       });
 
-      // Filter: hide master products that are marked as not visible
-      products = allProducts.filter(p => {
-        // Hide master products that are not visible
-        if (p.isMaster && !p.isVisible) {
-          return false;
-        }
-        return true;
-      });
-
-      // Also count with the same filter
-      const allProductsCount = await this.prisma.product.findMany({
+      // Count total with same filters (already filtered at database level)
+      total = await this.prisma.product.count({
         where,
-        select: {
-          id: true,
-          isMaster: true,
-          isVisible: true,
-        },
       });
-
-      total = allProductsCount.filter(p => {
-        if (p.isMaster && !p.isVisible) {
-          return false;
-        }
-        return true;
-      }).length;
     }
 
     return {
