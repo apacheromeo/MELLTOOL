@@ -102,7 +102,11 @@ class ApiClient {
 
   // Inventory endpoints
   async getProducts(params?: { page?: number; limit?: number; search?: string; category?: string; brand?: string }) {
-    const query = new URLSearchParams(params as any).toString();
+    // Filter out undefined/null values to prevent "undefined" strings in query
+    const filteredParams = Object.entries(params || {})
+      .filter(([_, value]) => value !== undefined && value !== null && value !== '')
+      .reduce((acc, [key, value]) => ({ ...acc, [key]: value }), {});
+    const query = new URLSearchParams(filteredParams as any).toString();
     return this.request(`/inventory/products?${query}`);
   }
 
