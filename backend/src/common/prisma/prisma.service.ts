@@ -1,13 +1,14 @@
-import { Injectable, OnModuleInit, OnModuleDestroy, Logger, Inject, forwardRef } from '@nestjs/common';
+import { Injectable, OnModuleInit, OnModuleDestroy, Logger, Inject } from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
 import { ClsService } from '../cls/cls.service';
 
 @Injectable()
 export class PrismaService extends PrismaClient implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(PrismaService.name);
+  private extendedClient: any;
 
   constructor(
-    @Inject(forwardRef(() => ClsService))
+    @Inject(ClsService)
     private readonly cls: ClsService,
   ) {
     // Fix for connection pooling - add pgbouncer=true if not present
@@ -58,8 +59,8 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
       await this.$connect();
       this.logger.log('✅ Database connected successfully');
 
-      // Register RLS middleware
-      this.registerRLSMiddleware();
+      // Set up extended client with RLS middleware
+      this.setupRLSExtension();
     } catch (error) {
       this.logger.error('❌ Failed to connect to database:', error);
       // Don't throw - allow app to start for health checks
@@ -69,33 +70,60 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
   }
 
   /**
-   * Register Prisma middleware to set RLS context for each query
-   * This ensures RLS policies are enforced on the same connection as the query
+   * Set up Prisma Client Extension for RLS
+   * This uses the new Prisma 5+ extension API instead of deprecated $use middleware
    */
-  private registerRLSMiddleware() {
-    this.$use(async (params, next) => {
-      // Get user context from CLS
-      const userContext = this.cls.getUserContext();
+  private setupRLSExtension() {
+    const self = this;
 
-      if (userContext) {
-        // Set RLS context on this connection before the query runs
-        try {
-          await this.$executeRaw`SELECT set_config('app.user_id', ${userContext.userId}, true)`;
-          await this.$executeRaw`SELECT set_config('app.user_role', ${userContext.userRole}, true)`;
-          this.logger.debug(`RLS context set for query: user=${userContext.userId}, role=${userContext.userRole}`);
-        } catch (error) {
-          this.logger.error('Failed to set RLS context in middleware:', error);
-          // Continue with the query anyway
-        }
-      } else {
-        // No user context - queries will use default RLS policies
-        this.logger.debug('No user context in CLS - query running without RLS context');
-      }
+    this.extendedClient = this.$extends({
+      query: {
+        $allModels: {
+          async $allOperations({ args, query, operation, model }) {
+            // Get user context from CLS
+            const userContext = self.cls.getUserContext();
 
-      // Execute the actual query
-      return next(params);
+            if (userContext) {
+              // Set RLS context before the query runs
+              try {
+                await self.$executeRaw`SELECT set_config('app.user_id', ${userContext.userId}, true)`;
+                await self.$executeRaw`SELECT set_config('app.user_role', ${userContext.userRole}, true)`;
+                self.logger.debug(
+                  `RLS context set: user=${userContext.userId}, role=${userContext.userRole}, operation=${operation}, model=${model}`
+                );
+              } catch (error) {
+                self.logger.error('Failed to set RLS context:', error);
+                // Continue with the query anyway
+              }
+            }
+
+            // Execute the actual query
+            return query(args);
+          },
+        },
+      },
     });
-    this.logger.log('✅ RLS middleware registered');
+
+    this.logger.log('✅ RLS extension registered via Prisma Client Extensions');
+
+    // Override all model accessors to use extended client
+    Object.keys(this).forEach((key) => {
+      if (
+        typeof (this as any)[key] === 'object' &&
+        (this as any)[key] !== null &&
+        !key.startsWith('_') &&
+        !key.startsWith('$') &&
+        key !== 'extendedClient' &&
+        key !== 'logger' &&
+        key !== 'cls'
+      ) {
+        Object.defineProperty(this, key, {
+          get: () => (this.extendedClient as any)[key],
+          enumerable: true,
+          configurable: true,
+        });
+      }
+    });
   }
 
   async onModuleDestroy() {
