@@ -95,6 +95,8 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
                 self.logger.error('Failed to set RLS context:', error);
                 // Continue with the query anyway
               }
+            } else {
+              self.logger.debug(`Query running without RLS context: operation=${operation}, model=${model}`);
             }
 
             // Execute the actual query
@@ -106,23 +108,24 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
 
     this.logger.log('✅ RLS extension registered via Prisma Client Extensions');
 
-    // Override all model accessors to use extended client
-    Object.keys(this).forEach((key) => {
-      if (
-        typeof (this as any)[key] === 'object' &&
-        (this as any)[key] !== null &&
-        !key.startsWith('_') &&
-        !key.startsWith('$') &&
-        key !== 'extendedClient' &&
-        key !== 'logger' &&
-        key !== 'cls'
-      ) {
-        Object.defineProperty(this, key, {
-          get: () => (this.extendedClient as any)[key],
-          enumerable: true,
-          configurable: true,
-        });
-      }
+    // Explicitly override each model property to use extended client
+    // Model properties aren't enumerable, so we must list them explicitly
+    const models = [
+      'user', 'category', 'brand', 'product', 'productCompatibility',
+      'stockIn', 'stockInItem', 'stockAdjustment', 'shopeeShop', 'shopeeItem',
+      'shopeeSyncLog', 'printJob', 'printJobProduct', 'setting', 'auditLog',
+      'salesOrder', 'salesItem', 'cancellationRequest', 'dailySalesSummary',
+      'expenseCategory', 'paymentMethod', 'expense', 'monthlyFinancialSummary'
+    ];
+
+    models.forEach((modelName) => {
+      Object.defineProperty(this, modelName, {
+        get() {
+          return (self.extendedClient as any)[modelName];
+        },
+        enumerable: true,
+        configurable: true,
+      });
     });
   }
 
