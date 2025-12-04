@@ -347,4 +347,8 @@ BEGIN
   END IF;
 END $$;
 
-RAISE NOTICE '✅ All RLS policies updated to use COALESCE with current_setting';
+-- Final success message
+DO $$
+BEGIN
+  RAISE NOTICE '✅ All RLS policies updated to use COALESCE with current_setting';
+END $$;
